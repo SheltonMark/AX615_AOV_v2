@@ -1,0 +1,12 @@
+build_host/
+build_local/
+*.exe
+*.obj
+*.o
+*.a
+*.so
+*.dll
+*.lib
+*.log
+.vs/
+.vscode/
