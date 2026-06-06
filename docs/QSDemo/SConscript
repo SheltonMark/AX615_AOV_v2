@@ -1,0 +1,32 @@
+Import('RTT_ROOT')
+from building import *
+
+cwd     = GetCurrentDir()
+all_src     = Glob('src/*.c')
+all_src     += Glob('src/com/*.c')
+all_src     += Glob('src/osd/*.c')
+all_src     += Glob('src/osd/font/*.c')
+all_src     += Glob('src/utils/*.c')
+
+exclude_files = ['*/qs_recorder.c']
+src = [f for f in all_src if not any(f.name.endswith(pattern.lstrip('*/')) for pattern in exclude_files)]
+
+# header_ext_dir = os.path.join(RTT_ROOT, '../../../header/external/')
+# header_int_dir = os.path.join(RTT_ROOT, '../../../header/internal/')
+include_demo_dir = os.path.join(cwd, 'src/')
+include_com_dir = os.path.join(cwd, 'src/com/')
+include_osd_dir = os.path.join(cwd, 'src/osd/')
+include_osd_font_dir = os.path.join(cwd, 'src/osd/font')
+include_utils_dir = os.path.join(cwd, 'src/utils/')
+CPPPATH = [include_demo_dir, include_com_dir, include_osd_dir, include_osd_font_dir, include_utils_dir]
+
+header_dir = os.path.join(RTT_ROOT, '../../../msp/out/arm_uclibc/include/')
+header_tcm_dir = os.path.join(RTT_ROOT, '../../../msp/component/isp_proton/sensor/platform/tcm/')
+CPPPATH += [header_dir, header_tcm_dir]
+
+include_mman_dir = os.path.join(RTT_ROOT, 'components/libc/posix/io/mman/')
+CPPPATH += [include_mman_dir]
+
+group = DefineGroup('ax_drivers', src, depend = [''], CPPPATH = CPPPATH)
+
+Return('group')

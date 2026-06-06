@@ -1,0 +1,12 @@
+{
+ "platform": [
+{
+"name": "AX520CD",
+"toolchainPath": "/opt/toolchains/AX520CD/usr",
+"compiler": "arm-nia7ux2111v2e-linux-uclibcgnueabihf-",
+"compileFlag": "-Os -Wfatal-errors -ffunction-sections -fdata-sections -Wl,--gc-sections -pthread -fPIC -std=gnu99",
+"arch": "arm",
+"os": "linux"
+}
+]
+}

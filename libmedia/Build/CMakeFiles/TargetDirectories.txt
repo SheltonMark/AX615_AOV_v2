@@ -1,0 +1,3 @@
+/home/mashuntao/AOV_AX615/code_v2/libmedia/Build/CMakeFiles/rebuild_cache.dir
+/home/mashuntao/AOV_AX615/code_v2/libmedia/Build/CMakeFiles/media.dir
+/home/mashuntao/AOV_AX615/code_v2/libmedia/Build/CMakeFiles/edit_cache.dir

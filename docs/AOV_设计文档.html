@@ -1,0 +1,2059 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AOV 设备端软件设计文档 · code_v2</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --line: #dbe4ef;
+      --text: #152033;
+      --muted: #5f6b7a;
+      --blue: #2563eb;
+      --cyan: #0891b2;
+      --green: #059669;
+      --purple: #7c3aed;
+      --orange: #ea580c;
+      --gray: #64748b;
+      --red: #dc2626;
+      --shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+      --shadow-sm: 0 10px 24px rgba(15, 23, 42, 0.07);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(37,99,235,0.06), transparent 28%),
+        radial-gradient(circle at top right, rgba(8,145,178,0.06), transparent 24%),
+        linear-gradient(180deg, #f7fbff 0%, #f4f7fb 100%);
+    }
+
+    .page {
+      max-width: 1760px;
+      margin: 0 auto;
+      padding: 24px 24px 80px;
+    }
+
+    /* ---------- Hero ---------- */
+    .hero {
+      background: linear-gradient(135deg, #eef6ff 0%, #f7fbff 50%, #eefcf7 100%);
+      border: 1px solid #dae8f7;
+      border-radius: 24px;
+      padding: 30px 32px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero .eyebrow {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: var(--blue);
+      margin-bottom: 10px;
+    }
+
+    .hero h1 {
+      margin: 0 0 12px;
+      font-size: 36px;
+      color: #0f172a;
+    }
+
+    .hero p {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.85;
+      color: #475569;
+      max-width: 1280px;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 22px;
+      margin-top: 18px;
+      font-size: 13px;
+      color: #64748b;
+    }
+    .meta-row b { color: #1f2937; }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .tag {
+      padding: 8px 13px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #37506a;
+      border: 1px solid #d8e4f1;
+      background: rgba(255,255,255,0.92);
+    }
+
+    /* ---------- TOC nav ---------- */
+    .toc {
+      margin-top: 22px;
+      background: var(--panel);
+      border: 1px solid #e3eaf3;
+      border-radius: 22px;
+      padding: 18px 22px;
+      box-shadow: var(--shadow);
+    }
+    .toc h2 { margin: 0 0 12px; font-size: 16px; color: #0f172a; }
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .toc a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: #37506a;
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #e6edf6;
+      background: #fbfdff;
+      transition: all .15s ease;
+    }
+    .toc a:hover { border-color: var(--blue); color: var(--blue); transform: translateY(-1px); }
+    .toc a .num {
+      flex: none;
+      width: 24px; height: 24px;
+      display: grid; place-items: center;
+      border-radius: 8px;
+      background: #eaf1ff;
+      color: var(--blue);
+      font-size: 12px; font-weight: 800;
+    }
+
+    /* ---------- Sections ---------- */
+    .section {
+      margin-top: 22px;
+      background: var(--panel);
+      border: 1px solid #e3eaf3;
+      border-radius: 22px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      scroll-margin-top: 16px;
+    }
+
+    .section > h2 {
+      margin: 0 0 6px;
+      font-size: 25px;
+      color: #0f172a;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    .section > h2 .badge {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+      background: var(--blue);
+      border-radius: 8px;
+      padding: 3px 10px;
+    }
+    .section > .lead {
+      margin: 0 0 18px;
+      font-size: 14px;
+      line-height: 1.75;
+      color: var(--muted);
+      max-width: 1320px;
+    }
+
+    .section h3 {
+      margin: 22px 0 10px;
+      font-size: 18px;
+      color: #0f172a;
+    }
+    .section h3:first-of-type { margin-top: 4px; }
+
+    .section p { font-size: 14px; line-height: 1.75; color: #475569; }
+
+    /* ---------- Generic cards ---------- */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+    .card {
+      border-radius: 18px;
+      border: 1px solid #e5ebf4;
+      padding: 16px 18px;
+      background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
+    }
+    .card h4 { margin: 0 0 10px; font-size: 16px; color: #0f172a; }
+    .card ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; color: #475569; }
+    .card li + li { margin-top: 3px; }
+    .card.accent-blue { border-top: 4px solid var(--blue); }
+    .card.accent-cyan { border-top: 4px solid var(--cyan); }
+    .card.accent-green { border-top: 4px solid var(--green); }
+    .card.accent-purple { border-top: 4px solid var(--purple); }
+    .card.accent-orange { border-top: 4px solid var(--orange); }
+    .card.accent-gray { border-top: 4px solid var(--gray); }
+    .card.accent-red { border-top: 4px solid var(--red); }
+
+    code, .mono {
+      font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
+      font-size: 12.5px;
+    }
+    code {
+      background: #eef2f9;
+      color: #1d4ed8;
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+
+    /* ---------- Tables ---------- */
+    .table-wrap { overflow-x: auto; border-radius: 14px; border: 1px solid #e5ebf4; margin-top: 6px; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; background: #fff; }
+    th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid #eef2f8; vertical-align: top; line-height: 1.6; }
+    th { background: #f3f7fd; color: #1f2937; font-weight: 800; font-size: 12.5px; white-space: nowrap; }
+    tr:last-child td { border-bottom: none; }
+    td.allow { color: var(--green); font-weight: 700; }
+    td.deny { color: var(--red); font-weight: 700; }
+    .pill {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .pill.app { background: #eaf1ff; color: var(--blue); }
+    .pill.cloud { background: #e6fbff; color: var(--cyan); }
+    .pill.media { background: #f3edff; color: var(--purple); }
+    .pill.sys { background: #e6f9f0; color: var(--green); }
+    .pill.dep { background: #fff0e6; color: var(--orange); }
+    .pill.cfg { background: #eef1f5; color: var(--gray); }
+
+    /* ---------- Code block ---------- */
+    pre {
+      margin: 12px 0 0;
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 14px;
+      padding: 16px 18px;
+      overflow-x: auto;
+      font-family: "JetBrains Mono", "Consolas", monospace;
+      font-size: 12.5px;
+      line-height: 1.65;
+      border: 1px solid #1e293b;
+    }
+    pre .c-key { color: #93c5fd; }
+    pre .c-type { color: #5eead4; }
+    pre .c-cmt { color: #64748b; font-style: italic; }
+    pre .c-str { color: #fca5a5; }
+    pre .c-dir { color: #fcd34d; }
+
+    .note-box {
+      margin-top: 14px;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.7;
+      border: 1px solid #ffe2c2;
+      background: #fff8f0;
+      color: #7c4a13;
+    }
+    .note-box.info { border-color: #c7ddff; background: #f3f8ff; color: #1e40af; }
+    .note-box.danger { border-color: #ffd0d0; background: #fff5f5; color: #991b1b; }
+    .note-box b { font-weight: 800; }
+
+    /* ---------- Architecture diagram ---------- */
+    .diagram {
+      position: relative;
+      border-radius: 22px;
+      border: 1px solid #e8eef6;
+      background: linear-gradient(180deg, #fbfdff 0%, #ffffff 14%, #ffffff 86%, #fbfdff 100%);
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .arch-diagram { min-height: 1180px; }
+
+    .lane-title {
+      position: absolute;
+      left: 18px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #64748b;
+      letter-spacing: 0.4px;
+    }
+    .sep { position: absolute; left: 16px; right: 16px; height: 1px; background: #e7edf5; }
+
+    .node {
+      position: absolute;
+      border-radius: 18px;
+      padding: 14px 15px 12px;
+      background: #ffffff;
+      border: 1px solid #dfe7f3;
+      box-shadow: 0 12px 30px rgba(15,23,42,0.08);
+      z-index: 2;
+    }
+    .node .title { margin-bottom: 7px; font-size: 17px; font-weight: 800; color: #0f172a; }
+    .node .sub { margin-bottom: 8px; font-size: 12.5px; font-weight: 700; color: #64748b; }
+    .node ul { margin: 0; padding-left: 17px; font-size: 12.5px; line-height: 1.6; color: #475569; }
+    .node li + li { margin-top: 2px; }
+    .node.app { border-top: 5px solid var(--blue); }
+    .node.cloud { border-top: 5px solid var(--cyan); }
+    .node.media { border-top: 5px solid var(--purple); }
+    .node.sys { border-top: 5px solid var(--green); }
+    .node.dep { border-top: 5px solid var(--orange); }
+    .node.cfg { border-top: 5px solid var(--gray); }
+    .node.ref { border-top: 5px dashed #94a3b8; background: #fcfdff; }
+
+    .diagram svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+    .arrow { stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .a-blue { stroke: var(--blue); }
+    .a-cyan { stroke: var(--cyan); }
+    .a-green { stroke: var(--green); }
+    .a-purple { stroke: var(--purple); }
+    .a-orange { stroke: var(--orange); }
+    .a-gray { stroke: #7a879d; }
+    .dash { stroke-dasharray: 8 7; }
+    .dlabel { font-size: 12px; font-weight: 700; fill: #475569; }
+
+    /* ---------- Sequence diagram ---------- */
+    .seq-card {
+      margin-top: 18px;
+      padding: 18px;
+      border-radius: 20px;
+      background: #fbfdff;
+      border: 1px solid #e6edf6;
+    }
+    .seq-title { margin: 0 0 6px; font-size: 18px; font-weight: 800; color: #0f172a; }
+    .seq-sub { margin: 0 0 8px; font-size: 13px; line-height: 1.7; color: #5f6b7a; }
+    .seq-diagram {
+      position: relative;
+      width: 100%;
+      border-radius: 16px;
+      background: #ffffff;
+      border: 1px solid #eaf0f8;
+      overflow: hidden;
+    }
+    .seq-diagram.h560 { height: 560px; }
+    .seq-diagram.h520 { height: 520px; }
+    .seq-diagram.h470 { height: 470px; }
+    .seq-diagram.h420 { height: 420px; }
+    .actor {
+      position: absolute;
+      top: 22px;
+      height: 46px;
+      border-radius: 9px;
+      background: #f3f7fd;
+      border: 1px solid #d8e4f1;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13.5px; font-weight: 700; color: #37506a;
+      transform: translateX(-18px);
+      padding: 0 6px;
+      text-align: center;
+    }
+    .lane {
+      position: absolute;
+      top: 72px; bottom: 16px;
+      border-left: 1px dashed #d6e0ec;
+      transform: translateX(-18px);
+    }
+    .seq-diagram svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; transform: translateX(-18px); }
+    .msg { stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .head { fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .s-blue { stroke: var(--blue); } .s-green { stroke: var(--green); }
+    .s-orange { stroke: var(--orange); } .s-purple { stroke: var(--purple); }
+    .s-cyan { stroke: var(--cyan); } .s-red { stroke: var(--red); }
+    .s-soft { stroke: #aebccd; stroke-dasharray: 6 6; }
+    .slabel { font-size: 12px; font-weight: 600; fill: #5f6b7a; }
+    .slabel.strong { fill: #1f2937; font-weight: 700; }
+    .seq-note {
+      position: absolute;
+      padding: 9px 11px;
+      border-radius: 11px;
+      border: 1px solid #ffe2c2;
+      background: #fff8f0;
+      font-size: 11.5px; line-height: 1.55; color: #7c4a13;
+      transform: translateX(-18px);
+    }
+
+    /* ---------- Footer ---------- */
+    .doc-footer {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 12.5px;
+      color: #94a3b8;
+      line-height: 1.8;
+    }
+
+    @media (max-width: 1380px) {
+      .toc-grid { grid-template-columns: repeat(2, 1fr); }
+      .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+      .diagram { overflow-x: auto; }
+    }
+    @media (max-width: 860px) {
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+      .toc-grid { grid-template-columns: 1fr; }
+    }
+  
+    /* ---------- Embedded overview from AOV_汇总版总体框图 ---------- */
+    #s2 {
+      padding: 22px;
+    }
+    #s2 h2 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      color: #0f172a;
+      display: block;
+    }
+    #s2 p {
+      margin: 0 0 16px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--muted);
+      max-width: none;
+    }
+    #s2 .diagram {
+      min-height: 1280px;
+      margin-top: 0;
+      z-index: 0;
+    }
+    #s2 .lane-title {
+      left: 18px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #64748b;
+      letter-spacing: 0.4px;
+    }
+    #s2 .t1 { top: 24px; }
+    #s2 .t2 { top: 258px; }
+    #s2 .t3 { top: 596px; }
+    #s2 .t4 { top: 980px; }
+    #s2 .sep {
+      left: 16px;
+      right: 16px;
+      height: 1px;
+      background: #e7edf5;
+    }
+    #s2 .s1 { top: 230px; }
+    #s2 .s2 { top: 560px; }
+    #s2 .s3 { top: 944px; }
+    #s2 .node {
+      padding: 15px 15px 13px;
+      z-index: 2;
+    }
+    #s2 .node .title {
+      margin-bottom: 8px;
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    #s2 .node .sub {
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #64748b;
+    }
+    #s2 .node ul {
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    #s2 svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 4;
+      pointer-events: none;
+    }
+    #s2 .arrow {
+      stroke-width: 2.2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    #s2 .label {
+      font-size: 12px;
+      font-weight: 700;
+      fill: #475569;
+      paint-order: stroke fill;
+      stroke: rgba(255,255,255,0.92);
+      stroke-width: 4px;
+      stroke-linejoin: round;
+    }
+
+    /* ---------- Embedded timing from AOV_汇总版关键时序 ---------- */
+    #s7 {
+      background: linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.028) 100%), #373c44;
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 20px;
+    }
+    #s7 h2 {
+      margin: 0 0 8px;
+      font-size: 23px;
+      color: rgba(255,255,255,0.92);
+      display: block;
+    }
+    #s7 p {
+      margin: 0 0 14px;
+      color: rgba(255,255,255,0.58);
+      font-size: 13px;
+      line-height: 1.7;
+      max-width: none;
+    }
+    #s7 code {
+      background: rgba(255,255,255,0.08);
+      color: #dbeafe;
+    }
+    #s7 .seq-card {
+      margin-top: 18px;
+      padding: 18px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+    #s7 .seq-card:first-of-type { margin-top: 0; }
+    #s7 .seq-title {
+      margin: 0 0 6px;
+      font-size: 20px;
+      font-weight: 800;
+      color: rgba(255,255,255,0.92);
+    }
+    #s7 .seq-sub {
+      margin: 0 0 14px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: rgba(255,255,255,0.56);
+    }
+    #s7 .diagram {
+      position: relative;
+      width: 100%;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.018) 0%, rgba(255,255,255,0.012) 100%);
+      border: 1px solid rgba(255,255,255,0.06);
+      overflow: hidden;
+      margin-top: 0;
+      min-height: 0;
+    }
+    #s7 .diagram.large { height: 610px; }
+    #s7 .diagram.medium { height: 520px; }
+    #s7 .diagram.medium-tall { height: 620px; }
+    #s7 .diagram.small { height: 450px; }
+    #s7 .actor {
+      position: absolute;
+      top: 34px;
+      width: 118px;
+      height: 54px;
+      border-radius: 7px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.78);
+      transform: translateX(18px);
+    }
+    #s7 .lane {
+      position: absolute;
+      top: 96px;
+      bottom: 20px;
+      border-left: 1px dashed rgba(255,255,255,0.12);
+      transform: translateX(18px);
+    }
+    #s7 .note {
+      position: absolute;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      font-size: 12px;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.66);
+      max-width: 260px;
+      transform: translateX(18px);
+    }
+    #s7 .note-list {
+      position: absolute;
+      display: grid;
+      gap: 10px;
+      width: 300px;
+      transform: translateX(18px);
+    }
+    #s7 svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      z-index: 1;
+      pointer-events: none;
+    }
+    #s7 .msg {
+      stroke-width: 1.7;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    #s7 .solid-blue { stroke: #4ea1ff; }
+    #s7 .solid-green { stroke: #52c17c; }
+    #s7 .solid-orange { stroke: #ffb14a; }
+    #s7 .solid-purple { stroke: #b08cff; }
+    #s7 .solid-cyan { stroke: #64d1e7; }
+    #s7 .solid-red { stroke: #ff7b7b; }
+    #s7 .soft { stroke: rgba(255,255,255,0.18); stroke-dasharray: 6 6; }
+    #s7 .arrow-blue { stroke: #4ea1ff; }
+    #s7 .arrow-green { stroke: #52c17c; }
+    #s7 .arrow-orange { stroke: #ffb14a; }
+    #s7 .arrow-purple { stroke: #b08cff; }
+    #s7 .arrow-cyan { stroke: #64d1e7; }
+    #s7 .arrow-red { stroke: #ff7b7b; }
+    #s7 .arrow-soft { stroke: rgba(255,255,255,0.22); }
+    #s7 .head {
+      fill: none;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    #s7 .label {
+      font-size: 12px;
+      font-weight: 600;
+      fill: rgba(255,255,255,0.62);
+      stroke: none;
+    }
+    #s7 .label.strong { fill: rgba(255,255,255,0.76); }
+  
+    /* ---------- Timing module wrapper overrides ---------- */
+    #s7 .timing-module {
+      width: 100%;
+      max-width: 1572px;
+      margin: 16px auto 0;
+      background: transparent;
+      border: none;
+      padding: 0;
+      box-shadow: none;
+      box-sizing: border-box;
+    }
+    #s7 .timing-section {
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.028) 100%), #373c44;
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 16px 36px rgba(0,0,0,0.22);
+      padding: 20px;
+    }
+    #s7 .timing-section + .timing-section {
+      margin-top: 22px;
+    }
+    #s7 .timing-section h2 {
+      margin: 0 0 8px;
+      font-size: 23px;
+      color: rgba(255,255,255,0.92);
+      display: block;
+    }
+    #s7 .timing-section p {
+      margin: 0 0 14px;
+      color: rgba(255,255,255,0.58);
+      font-size: 13px;
+      line-height: 1.7;
+      max-width: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <span class="eyebrow">AX615 · AOV 低功耗摄像机 · 产品化主线</span>
+      <h1>AOV 设备端软件设计文档（code_v2）</h1>
+      <p>本文档汇总 <code>code_v2</code> 的<strong>系统架构、数据链路、关键时序与代码目录框架</strong>，作为正式编码前的总冻结稿。核心设计原则：<strong>app</strong> 负责业务编排与决策，<strong>libmedia</strong> 负责媒体链能力，<strong>libsys</strong> 负责系统/低功耗/硬件与 4G 模组，芯片 SDK 只允许出现在适配层（<code>adapter/ax615</code>）与依赖层（<code>Depend</code>）。所有跨层交互通过稳定接口完成，禁止业务层直接触碰 AX SDK。</p>
+      <div class="meta-row">
+        <span>文档版本：<b>v1.0 汇总冻结稿</b></span>
+        <span>目标芯片：<b>AX615（RISC-V / TCM 低功耗）</b></span>
+        <span>语言/标准：<b>C++17</b></span>
+        <span>参考来源：<b>QSDemo 已验证链路 + 现有设备端工程经验</b></span>
+      </div>
+      <div class="tags">
+        <span class="tag">App 经云端触发设备</span>
+        <span class="tag">4G 模组负责远程唤醒与心跳</span>
+        <span class="tag">AOV 决策在 app/core</span>
+        <span class="tag">媒体模式切换在 libmedia</span>
+        <span class="tag">系统/硬件低功耗执行在 libsys</span>
+        <span class="tag">SDK 隔离在 adapter / Depend</span>
+      </div>
+    </section>
+
+    <!-- ============ TOC ============ -->
+    <nav class="toc">
+      <h2>文档导航</h2>
+      <div class="toc-grid">
+        <a href="#s1"><span class="num">1</span>设计目标与分层原则</a>
+        <a href="#s2"><span class="num">2</span>总体架构与模块交互</a>
+        <a href="#s3"><span class="num">3</span>模块职责与边界矩阵</a>
+        <a href="#s4"><span class="num">4</span>依赖方向与实现禁区</a>
+        <a href="#s5"><span class="num">5</span>核心数据模型与接口</a>
+        <a href="#s6"><span class="num">6</span>工作模式状态机</a>
+        <a href="#s7"><span class="num">7</span>关键业务时序</a>
+        <a href="#s8"><span class="num">8</span>代码目录框架</a>
+        <a href="#s9"><span class="num">9</span>事件 / 回调 / 状态码规范</a>
+        <a href="#s10"><span class="num">10</span>计划实现顺序</a>
+      </div>
+    </nav>
+
+    <!-- ============ SECTION 1 ============ -->
+    <section class="section" id="s1">
+      <h2><span class="badge">01</span>设计目标与分层原则</h2>
+      <p class="lead">code_v2 作为产品化版本，目标不是继续堆叠 QSDemo 适配代码，而是形成<strong>长期可维护、可替换芯片 SDK、可复用量产业务能力</strong>的设备端工程结构。三套代码定位明确，互不混淆。</p>
+
+      <div class="grid-3">
+        <div class="card accent-purple">
+          <h4>QSDemo（真实链路参考）</h4>
+          <ul>
+            <li>AOV 状态流转、检测触发</li>
+            <li>媒体链恢复、低功耗切换</li>
+            <li>录像 / RTSP / OSD 真实调用顺序</li>
+            <li>只参考行为，不照搬单文件结构</li>
+          </ul>
+        </div>
+        <div class="card accent-gray">
+          <h4>现有设备端工程经验（分层参考）</h4>
+          <ul>
+            <li>接口命名方式</li>
+            <li>宿主侧 / 板端双态适配思路</li>
+            <li>分层方向是否合理</li>
+            <li>保留不删，但不再继续膨胀</li>
+          </ul>
+        </div>
+        <div class="card accent-blue">
+          <h4>code_v2（正式主线）</h4>
+          <ul>
+            <li>新功能、新接口、新目录优先落这里</li>
+            <li>先冻结接口/事件/状态/返回码</li>
+            <li>再逐步映射 QSDemo 真实实现</li>
+            <li>本文档优先级高于个人临时写法</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>三层总体原则</h3>
+      <div class="grid-3">
+        <div class="card accent-blue">
+          <h4>app · 业务层</h4>
+          <ul>
+            <li>AOV 主状态机与编排</li>
+            <li>云交互、配置中心</li>
+            <li>决定何时睡 / 醒 / 恢复常电</li>
+            <li>不直接落 AX SDK 细节</li>
+          </ul>
+        </div>
+        <div class="card accent-purple">
+          <h4>libmedia · 媒体层</h4>
+          <ul>
+            <li>camera / vin / ivps / venc</li>
+            <li>detect / preview / record / osd</li>
+            <li>媒体级低功耗：fps / idr</li>
+            <li>不承载业务策略</li>
+          </ul>
+        </div>
+        <div class="card accent-green">
+          <h4>libsys · 系统层</h4>
+          <ul>
+            <li>sleep / wakeup / battery</li>
+            <li>4G modem / GPIO 唤醒脚</li>
+            <li>device / network</li>
+            <li>不承载云业务协议</li>
+          </ul>
+        </div>
+        <div class="card accent-orange">
+          <h4>Depend / products</h4>
+          <ul>
+            <li>AX SDK、第三方库集中管理</li>
+            <li>工厂默认 / SKU 差异配置</li>
+            <li>配置 schema / profile</li>
+            <li>不放运行时业务代码</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SECTION 2 ============ -->
+    <section class="section" id="s2">
+      <h2>总体分层与主数据流</h2>
+      <div class="diagram">
+        <div class="lane-title t1">外部交互层</div>
+        <div class="lane-title t2">业务编排层</div>
+        <div class="lane-title t3">能力执行层</div>
+        <div class="lane-title t4">依赖与参考层</div>
+
+        <div class="sep s1"></div>
+        <div class="sep s2"></div>
+        <div class="sep s3"></div>
+
+        <div class="node cloud" style="left:70px;top:70px;width:230px;">
+          <div class="title">手机 App</div>
+          <div class="sub">用户入口</div>
+          <ul>
+            <li>发起预览</li>
+            <li>修改工作模式与录像配置</li>
+            <li>查看设备在线、电量、告警状态</li>
+          </ul>
+        </div>
+
+        <div class="node cloud" style="left:430px;top:70px;width:300px;">
+          <div class="title">云端平台</div>
+          <div class="sub">消息中转与状态汇聚</div>
+          <ul>
+            <li>下发预览唤醒、配置变更</li>
+            <li>接收设备心跳、告警、抓图、录像索引</li>
+            <li>向 App 同步设备状态</li>
+          </ul>
+        </div>
+
+        <div class="node sys" style="left:970px;top:70px;width:240px;">
+          <div class="title">4G 模组</div>
+          <div class="sub">远程唤醒与在线保持</div>
+          <ul>
+            <li>接收云端远程唤醒指令</li>
+            <li>拉 GPIO 唤醒主控</li>
+            <li>主动上报在线、网络、信号状态</li>
+          </ul>
+        </div>
+
+        <div class="node app" style="left:70px;top:304px;width:290px;">
+          <div class="title">app/core</div>
+          <div class="sub">AOV 状态机与总调度</div>
+          <ul>
+            <li>工作模式流转：省电 / 智能不休眠 / 超长待机 / 低电保护</li>
+            <li>决策何时检测、何时恢复常电、何时重新休眠</li>
+            <li>协调预览、录像、抓图、告警、配置生效</li>
+          </ul>
+        </div>
+
+        <div class="node app" style="left:480px;top:292px;width:300px;">
+          <div class="title">app/preview · app/alarm · app/storage</div>
+          <div class="sub">业务会话层</div>
+          <ul>
+            <li>预览会话管理与超时回收</li>
+            <li>事件录像策略与片段管理</li>
+            <li>告警聚合、抓图绑定、上报触发</li>
+          </ul>
+        </div>
+
+        <div class="node cloud" style="left:960px;top:304px;width:280px;">
+          <div class="title">app/cloud · app/config</div>
+          <div class="sub">协议与配置入口</div>
+          <ul>
+            <li>对接云端业务消息</li>
+            <li>持久化配置并通知核心状态机</li>
+            <li>回传生效结果与设备状态</li>
+          </ul>
+        </div>
+
+        <div class="node media" style="left:70px;top:640px;width:350px;">
+          <div class="title">libmedia</div>
+          <div class="sub">媒体能力层</div>
+          <ul>
+            <li>detect：轻量检测、人形/宠物等目标识别</li>
+            <li>preview：预览媒体链恢复与停止</li>
+            <li>record：编码录像、片段滚动、抓图能力</li>
+            <li>osd：叠框、文本、状态叠加</li>
+            <li>adapter：隔离 AX SDK 真实媒体接口</li>
+          </ul>
+        </div>
+
+        <div class="node sys" style="left:470px;top:628px;width:370px;">
+          <div class="title">libsys</div>
+          <div class="sub">系统与硬件能力层</div>
+          <ul>
+            <li>power：定时唤醒、电量采集、低功耗进入/退出</li>
+            <li>modem：4G 在线状态、远程唤醒链路、心跳入口</li>
+            <li>device：GPIO、补光灯、云台、电机等硬件控制</li>
+            <li>network：网络状态；文件落盘策略由 app/storage 收口</li>
+          </ul>
+        </div>
+
+        <div class="node cfg" style="left:920px;top:646px;width:280px;">
+          <div class="title">设备运行时配置</div>
+          <div class="sub">单一配置源</div>
+          <ul>
+            <li>工作模式</li>
+            <li>定时唤醒间隔</li>
+            <li>录像规格与检测类型</li>
+            <li>补光灯 / 云台 / 电量保护阈值</li>
+          </ul>
+        </div>
+
+        <div class="node dep" style="left:90px;top:1020px;width:320px;">
+          <div class="title">Depend / AX SDK / 第三方库</div>
+          <div class="sub">底层依赖层</div>
+          <ul>
+            <li>AX ISP / VIN / IVPS / VENC / JENC / OSD / RTSP</li>
+            <li>RISC-V / TCM / 低功耗相关驱动与内核接口</li>
+            <li>文件系统、网络、设备驱动依赖</li>
+          </ul>
+        </div>
+
+        <div class="node ref" style="left:460px;top:1020px;width:380px;">
+          <div class="title">QSDemo 参考实现</div>
+          <div class="sub">已验证链路来源</div>
+          <ul>
+            <li>AOV 休眠 / 唤醒主流程</li>
+            <li>检测链、编码链、SD 卡录像链</li>
+            <li>JENC 首图保存、OSD、RTSP 基础能力</li>
+          </ul>
+        </div>
+
+        <div class="node ref" style="left:900px;top:1020px;width:300px;">
+          <div class="title">产品化补齐模块</div>
+          <div class="sub">Demo 未完整覆盖</div>
+          <ul>
+            <li>告警抓图与上云绑定</li>
+            <li>配置下发与运行时生效</li>
+            <li>模式、电量、状态上报闭环</li>
+          </ul>
+        </div>
+
+        <svg viewBox="0 0 1720 1280" preserveAspectRatio="xMinYMin meet">
+          <path class="arrow a-cyan" d="M 300 160 L 430 160" />
+          <path class="arrow a-cyan" d="M 420 156 L 430 160 L 420 164" />
+          <text class="label" x="365" y="152" text-anchor="middle">预览请求 / 参数修改</text>
+
+          <path class="arrow a-cyan" d="M 730 150 L 970 150" />
+          <path class="arrow a-cyan" d="M 960 146 L 970 150 L 960 154" />
+          <text class="label" x="850" y="140" text-anchor="middle">远程唤醒指令</text>
+
+          <path class="arrow a-green" d="M 1090 220 L 1090 270 L 360 270 L 360 304" />
+          <path class="arrow a-green" d="M 356 294 L 360 304 L 364 294" />
+          <text class="label" x="760" y="258">4G 模组触发唤醒事件</text>
+
+          <path class="arrow a-cyan" d="M 580 214 L 580 284 L 1030 284 L 1030 304" />
+          <path class="arrow a-cyan" d="M 1026 294 L 1030 304 L 1034 294" />
+          <text class="label" x="770" y="272">云端配置下发</text>
+
+          <path class="arrow a-blue dash" d="M 1030 304 L 1030 238 L 730 238 L 730 214" />
+          <path class="arrow a-blue dash" d="M 726 224 L 730 214 L 734 224" />
+          <text class="label" x="810" y="226">云端状态同步 / 执行回执</text>
+
+          <path class="arrow a-blue" d="M 360 400 L 480 400" />
+          <path class="arrow a-blue" d="M 470 396 L 480 400 L 470 404" />
+          <text class="label" x="420" y="380" text-anchor="middle"><tspan x="420" dy="0">预览 / 录像 / 告警</tspan><tspan x="420" dy="15">会话编排</tspan></text>
+
+          <path class="arrow a-blue" d="M 780 400 L 960 400" />
+          <path class="arrow a-blue" d="M 950 396 L 960 400 L 950 404" />
+          <text class="label" x="870" y="380" text-anchor="middle"><tspan x="870" dy="0">配置生效结果</tspan><tspan x="870" dy="15">设备状态回传到云端入口</tspan></text>
+
+          <path class="arrow a-purple" d="M 200 490 L 200 596 L 220 596 L 220 640" />
+          <path class="arrow a-purple" d="M 216 630 L 220 640 L 224 630" />
+          <text class="label" x="76" y="584">媒体模式切换 / 检测 / 录像 / 抓图</text>
+
+          <path class="arrow a-green" d="M 220 520 L 220 572 L 640 572 L 640 628" />
+          <path class="arrow a-green" d="M 636 618 L 640 628 L 644 618" />
+          <text class="label" x="338" y="560">定时唤醒、电量、GPIO、补光灯、云台控制</text>
+
+          <path class="arrow a-gray dash" d="M 630 520 L 630 606 L 1000 606 L 1000 646" />
+          <path class="arrow a-gray dash" d="M 996 636 L 1000 646 L 1004 636" />
+          <text class="label" x="720" y="594">读取当前配置并驱动运行时生效</text>
+
+          <path class="arrow a-blue dash" d="M 1000 466 L 1000 584 L 620 584 L 620 628" />
+          <path class="arrow a-blue dash" d="M 616 618 L 620 628 L 624 618" />
+          <text class="label" x="700" y="572">云端状态与本机电量、网络信息融合</text>
+
+          <path class="arrow a-orange" d="M 220 860 L 220 944 L 220 944 L 220 1020" />
+          <path class="arrow a-orange" d="M 216 1010 L 220 1020 L 224 1010" />
+          <text class="label" x="96" y="932">SDK 媒体接口与驱动依赖</text>
+
+          <path class="arrow a-gray dash" d="M 640 860 L 640 944 L 640 944 L 640 1020" />
+          <path class="arrow a-gray dash" d="M 636 1010 L 640 1020 L 644 1010" />
+          <text class="label" x="484" y="932">QSDemo 提供已验证行为参考</text>
+
+          <path class="arrow a-blue dash" d="M 1040 860 L 1040 944 L 1040 944 L 1040 1020" />
+          <path class="arrow a-blue dash" d="M 1036 1010 L 1040 1020 L 1044 1010" />
+          <text class="label" x="888" y="932">产品化还需补齐的业务能力</text>
+
+          <path class="arrow a-cyan dash" d="M 1090 70 L 1090 48 L 640 48 L 640 70" />
+          <path class="arrow a-cyan dash" d="M 636 60 L 640 70 L 644 60" />
+          <text class="label" x="770" y="40">心跳、在线状态、电量摘要上报云端</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ============ SECTION 3 ============ -->
+    <section class="section" id="s3">
+      <h2><span class="badge">03</span>模块职责与边界矩阵</h2>
+      <p class="lead">每个模块只回答一类问题。判断一段逻辑该放哪一层时，先问：它属于业务决策、媒体能力，还是系统/硬件能力？是否需要知道云协议语义？是否需要知道 AX SDK 细节？</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>模块</th><th>层</th><th>核心职责</th><th class="allow">允许依赖</th><th class="deny">禁止事项</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>app/core</code></td><td><span class="pill app">app</span></td>
+              <td>AOV 主状态机、工作模式流转、唤醒/休眠决策，协调各业务子域与 libsys/libmedia</td>
+              <td>config / cloud / preview / record / alarm；libsys、libmedia 对外接口</td>
+              <td>直接含 AX SDK 头文件；直接操作 GPIO/I2C/PWM；直接写 RTSP/VENC；直接处理云协议报文</td>
+            </tr>
+            <tr>
+              <td><code>app/cloud</code></td><td><span class="pill cloud">app</span></td>
+              <td>云业务协议接入、命令路由、状态/告警/配置上报，协同 modem 完成远程唤醒闭环</td>
+              <td>app/core、app/config；libsys/modem 对外接口</td>
+              <td>直接拉 GPIO 唤醒脚；实现 4G 驱动细节；直接控制媒体链</td>
+            </tr>
+            <tr>
+              <td><code>app/config</code></td><td><span class="pill cfg">app</span></td>
+              <td>装载默认配置、管理运行时配置、校验合法性、分发到各层</td>
+              <td>products/ 配置文件；持久化配置接口</td>
+              <td>直接改媒体链对象；直接改 GPIO/4G/云台；承载业务状态机</td>
+            </tr>
+            <tr>
+              <td><code>app/preview</code></td><td><span class="pill app">app</span></td>
+              <td>预览会话生命周期、App 预览请求与媒体预览对接</td>
+              <td>app/core、app/cloud；libmedia 对外媒体接口</td>
+              <td>自己决定系统休眠策略；直接操作 AX VENC/RTSP</td>
+            </tr>
+            <tr>
+              <td><code>app/storage</code></td><td><span class="pill app">app</span></td>
+              <td>录像策略、事件片段管理、索引与元数据，dhfs 私有协议封装</td>
+              <td>app/core；libmedia 对外媒体接口；app/storage/dhfs</td>
+              <td>直接操作底层存储挂载；直接写编码器细节；让 libmedia 感知 dhfs 协议</td>
+            </tr>
+            <tr>
+              <td><code>app/alarm</code></td><td><span class="pill app">app</span></td>
+              <td>报警类型策略、检测结果到报警事件转换、与录像/上报联动</td>
+              <td>app/core、app/cloud、app/storage；libmedia/detect</td>
+              <td>实现检测模型逻辑；实现媒体抓帧逻辑</td>
+            </tr>
+            <tr>
+              <td><code>libmedia</code></td><td><span class="pill media">media</span></td>
+              <td>camera/vin/ivps/venc/jenc/rtsp、检测取帧、OSD、媒体级低功耗切换</td>
+              <td>adapter/ax615；少量 libsys 系统能力（时间/文件/线程）</td>
+              <td>承载云协议；承载业务状态机；自行决定进入 AOV/常电模式</td>
+            </tr>
+            <tr>
+              <td><code>adapter/ax615</code></td><td><span class="pill media">media</span></td>
+              <td>AX615 媒体 SDK 隔离，吸收 QSDemo 实现经验，对上输出稳定接口</td>
+              <td>AX615 SDK；QSDemo 行为参考</td>
+              <td>把业务状态机塞回来；硬编码路径/产品默认配置</td>
+            </tr>
+            <tr>
+              <td><code>libsys/power</code></td><td><span class="pill sys">sys</span></td>
+              <td>系统级 sleep / wakeup timer / wake event、battery、工作模式、唤醒原因采集</td>
+              <td>SoC 低功耗接口；libsys/os、libsys/device</td>
+              <td>承载云协议；承载媒体恢复细节</td>
+            </tr>
+            <tr>
+              <td><code>libsys/modem</code></td><td><span class="pill sys">sys</span></td>
+              <td>4G 链路状态、心跳承接、模组在线采集、GPIO 拉脚唤醒主控、模组事件对接</td>
+              <td>libsys/device、libsys/network、libsys/os</td>
+              <td>解释云端业务协议语义；直接控制媒体链恢复顺序</td>
+            </tr>
+            <tr>
+              <td><code>libsys/device</code></td><td><span class="pill sys">sys</span></td>
+              <td>gpio/i2c/pwm/motor/led/云台、补光、SD 卡检测等通用硬件外设控制</td>
+              <td>底层驱动接口</td>
+              <td>承载业务状态；直接做云交互</td>
+            </tr>
+            <tr>
+              <td><code>libsys/network</code></td><td><span class="pill sys">sys</span></td>
+              <td>网络在线状态、基础联网能力，为 modem 与 cloud 提供链路状态支撑</td>
+              <td>底层网络接口</td>
+              <td>承载 App/云协议语义</td>
+            </tr>
+            <tr>
+              <td><code>products/</code></td><td><span class="pill dep">dep</span></td>
+              <td>工厂默认配置、SKU 差异配置、配置 schema / profile</td>
+              <td>—</td>
+              <td>写运行时逻辑；放 C/C++ 业务代码</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ SECTION 4 ============ -->
+    <section class="section" id="s4">
+      <h2><span class="badge">04</span>依赖方向与实现禁区</h2>
+      <p class="lead">依赖方向单向向下，严禁反向依赖。这是整个架构能否长期维持的关键约束。</p>
+      <div class="grid-2">
+        <div>
+          <h3>允许的主要依赖方向</h3>
+<pre><span class="c-cmt"># 配置流</span>
+products        ──▶ app/config
+
+<span class="c-cmt"># 业务编排</span>
+app/core        ──▶ app/{cloud,config,preview,record,alarm}
+app/core        ──▶ libsys / libmedia
+
+<span class="c-cmt"># 业务子域</span>
+app/cloud       ──▶ libsys/modem
+app/cloud/ota   ──▶ app/cloud + products/升级包策略
+app/preview     ──▶ libmedia 对外媒体接口
+app/storage     ──▶ libmedia 对外媒体接口 + app/storage/dhfs
+app/alarm       ──▶ libmedia/detect + app/cloud + app/storage
+
+<span class="c-cmt"># 能力层</span>
+libmedia        ──▶ libmedia/adapter/ax615
+libsys/*        ──▶ 各自实现层 + AX/SoC SDK</pre>
+        </div>
+        <div>
+          <h3>禁止反向依赖</h3>
+          <div class="card accent-red" style="margin-bottom:14px;">
+            <ul>
+              <li><code>libmedia</code> 不能依赖 <code>app/*</code></li>
+              <li><code>libsys</code> 不能依赖 <code>app/*</code></li>
+              <li><code>libmedia</code> 不能直接依赖 <code>app/cloud</code></li>
+              <li><code>libsys/modem</code> 不能解释云协议业务含义</li>
+              <li><code>app/*</code> 不能直接 include AX SDK 头文件</li>
+            </ul>
+          </div>
+          <h3 style="margin-top:0;">默认实现禁区</h3>
+          <div class="card accent-orange">
+            <ul>
+              <li>在 <code>app/*</code> 中直接调用 AX SDK</li>
+              <li>在 <code>libmedia</code> 中写 AOV 业务状态机</li>
+              <li>在 <code>libsys/modem</code> 中写云协议业务语义</li>
+              <li>在 <code>app/cloud</code> 中直接拉 GPIO 或访问 4G 驱动</li>
+              <li>在多个模块重复维护工作模式/电量阈值/录像路径/唤醒原因</li>
+              <li>没有接口边界就直接从业务层跳到底层实现</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="note-box danger"><b>单一真值来源：</b>工作模式、电量阈值、录像路径、唤醒原因字段、板端路径常量等，只能在一处定义，禁止散落多个目录重复维护。低功耗录像规格只由 <code>periodic_wakeup_interval_sec</code> 单一配置项驱动。</div>
+    </section>
+
+    <!-- ============ SECTION 5 ============ -->
+    <section class="section" id="s5">
+      <h2><span class="badge">05</span>核心数据模型与接口</h2>
+      <p class="lead">所有跨层事件以"事实"形式上送，决策只在 <code>app/core</code> 产生。下列类型与接口对应实际代码中的 <code>aov_types.hpp</code> / <code>domain_types.hpp</code> / <code>media_types.hpp</code> / <code>sys_types.hpp</code> 及各 <code>i_*.hpp</code> 接口头。三层各自维护独立的命名空间（<code>aov::app</code> / <code>aov::media</code> / <code>aov::sys</code>）与状态码，跨层只通过下列稳定结构体传值，不暴露各自内部对象。</p>
+
+      <h3>核心枚举与数据结构 · <span class="mono">app/core/aov_types.hpp</span></h3>
+      <div class="grid-2">
+<pre><span class="c-key">enum class</span> <span class="c-type">ConfiguredWorkMode</span> {   <span class="c-cmt">// 用户可配置模式</span>
+    PowerSaving,                 <span class="c-cmt">// 省电</span>
+    SmartNoSleep,                <span class="c-cmt">// 智能不休眠</span>
+    UltraLongStandby,            <span class="c-cmt">// 超长待机</span>
+};
+
+<span class="c-key">enum class</span> <span class="c-type">RuntimeWorkState</span> {     <span class="c-cmt">// 运行时有效状态</span>
+    AwakeNormal,                 <span class="c-cmt">// 常电正常</span>
+    SleepPeriodicDetect,         <span class="c-cmt">// 定时唤醒检测</span>
+    SleepAppWakeOnly,            <span class="c-cmt">// 仅 App 唤醒</span>
+    LowBatteryProtection,        <span class="c-cmt">// 极低电量保护</span>
+};
+
+<span class="c-key">enum class</span> <span class="c-type">WakeupSource</span> {
+    Timer, Detect, AppRemote, Manual, Unknown,
+};</pre>
+<pre><span class="c-key">struct</span> <span class="c-type">WorkModePolicy</span> {
+    ConfiguredWorkMode configured_mode {PowerSaving};
+    <span class="c-key">int</span> periodic_wakeup_interval_sec {1};   <span class="c-cmt">// 1/3/5/15 单一真值</span>
+    <span class="c-key">int</span> normal_record_fps {15};
+    <span class="c-key">int</span> low_battery_protect_threshold_pct {10}; <span class="c-cmt">// 5~30</span>
+    <span class="c-key">int</span> smart_to_save_threshold_pct {70};
+    <span class="c-key">int</span> smart_to_awake_threshold_pct {80};
+};
+
+<span class="c-key">struct</span> <span class="c-type">BatteryStatus</span> {
+    <span class="c-key">int</span> percent {100}; <span class="c-key">bool</span> charging {false};
+    <span class="c-key">bool</span> low_battery_protect {false};
+};
+
+<span class="c-key">struct</span> <span class="c-type">DetectResultSummary</span> {
+    <span class="c-key">bool</span> has_person, has_pet, has_vehicle;
+    <span class="c-key">int</span> object_count; <span class="c-type">uint64_t</span> frame_id, timestamp_ms;
+};</pre>
+      </div>
+
+      <h3>跨层交互数据契约（app ↔ libmedia / app ↔ libsys）</h3>
+      <p>下列结构是业务层与能力层之间的<strong>稳定传值边界</strong>：<code>app</code> 不感知 AX SDK 对象，<code>libmedia</code> / <code>libsys</code> 也不感知云协议语义。每层各自维护独立状态码（<code>AovStatusCode</code> / <code>MediaStatusCode</code> / <code>SysStatusCode</code>），跨层调用只在接口边界做一次映射，SDK 原生错误码不向上穿透。</p>
+      <div class="grid-2">
+<pre><span class="c-cmt">// ===== app ↔ libmedia =====</span>
+<span class="c-cmt">// libmedia/common/media_types.hpp · namespace aov::media</span>
+
+<span class="c-key">enum class</span> <span class="c-type">MediaStatusCode</span> {
+    Ok, InvalidArgument, InvalidState,
+    Busy, Unsupported, InternalError,
+};
+
+<span class="c-key">struct</span> <span class="c-type">MediaProfile</span> {        <span class="c-cmt">// 录像/取帧规格</span>
+    <span class="c-key">int</span>  record_fps {15};      <span class="c-cmt">// 常电录像帧率</span>
+    <span class="c-key">int</span>  interval_sec {1};    <span class="c-cmt">// 低功耗取帧间隔</span>
+    <span class="c-key">bool</span> low_power_mode {false};
+};
+
+<span class="c-cmt">// app/core → libmedia 调用方向：</span>
+<span class="c-cmt">// ResumeNormalMode / EnterLowPowerMode</span>
+<span class="c-cmt">// ApplyLowPowerRecordProfile(interval_sec)</span>
+<span class="c-cmt">// ApplyNormalRecordProfile(fps) / RequestIdr</span>
+
+<span class="c-cmt">// libmedia/detect → app/core 回上事实：</span>
+<span class="c-cmt">// RunOnceDetect() 返回 app::DetectResultSummary</span>
+<span class="c-cmt">// （媒体层只回检测事实，不做告警决策）</span></pre>
+<pre><span class="c-cmt">// ===== app ↔ libsys =====</span>
+<span class="c-cmt">// libsys/common/sys_types.hpp · namespace aov::sys</span>
+
+<span class="c-key">enum class</span> <span class="c-type">SysStatusCode</span> {
+    Ok, InvalidArgument, InvalidState,
+    Busy, Unsupported, InternalError,
+};
+
+<span class="c-key">struct</span> <span class="c-type">ModemHeartbeatState</span> {  <span class="c-cmt">// 4G 心跳事实</span>
+    <span class="c-key">bool</span> online {false};
+    <span class="c-type">uint64_t</span> timestamp_ms {0};
+};
+
+<span class="c-key">struct</span> <span class="c-type">NetworkState</span> {         <span class="c-cmt">// 联网事实</span>
+    <span class="c-key">bool</span> connected {false};
+    std::string ifname;
+};
+
+<span class="c-cmt">// libsys/power → app/core 回上事实：</span>
+<span class="c-cmt">// GetLastWakeupEvent() 返回 app::WakeupEvent</span>
+<span class="c-cmt">// GetBatteryStatus()   返回 app::BatteryStatus</span>
+<span class="c-cmt">// （唤醒原因/电量是事实，模式决策回 core）</span></pre>
+      </div>
+
+      <h3>业务编排层共享载荷 · <span class="mono">app/core/aov_types.hpp · app/domain/domain_types.hpp</span></h3>
+      <p>这些结构由 <code>app/core</code> 与 <code>app/{cloud,preview,record,alarm}</code> 共享，是预览唤醒、告警上报、运行态查询的传值载体。<code>WakeupEvent</code> 同时被 <code>libsys/power</code> 与 <code>libsys/modem</code> 作为返回值填充，是 app↔libsys 的关键契约。</p>
+      <div class="grid-2">
+<pre><span class="c-key">struct</span> <span class="c-type">WakeupEvent</span> {        <span class="c-cmt">// libsys → core</span>
+    WakeupSource source {WakeupSource::Unknown};
+    <span class="c-type">uint64_t</span> timestamp_ms {0};
+    <span class="c-key">bool</span> from_4g_modem {false}; <span class="c-cmt">// 远程唤醒标记</span>
+};
+
+<span class="c-key">struct</span> <span class="c-type">PreviewRequest</span> {     <span class="c-cmt">// cloud → core → preview</span>
+    std::string session_id;
+    std::string user_id;
+    <span class="c-key">bool</span> force_wakeup {false};
+    <span class="c-key">int</span>  expected_timeout_sec {0};
+};
+
+<span class="c-key">struct</span> <span class="c-type">AovRuntimeContext</span> {  <span class="c-cmt">// core 对外快照</span>
+    WorkModePolicy policy;
+    BatteryStatus  battery;
+    RuntimeWorkState runtime_state
+        {RuntimeWorkState::SleepPeriodicDetect};
+    <span class="c-key">bool</span> preview_active {false};
+    <span class="c-key">bool</span> recording_active {false};
+    <span class="c-type">uint64_t</span> last_wakeup_ts_ms {0};
+};</pre>
+<pre><span class="c-cmt">// app/domain/domain_types.hpp · namespace aov::app</span>
+
+<span class="c-key">enum class</span> <span class="c-type">AlarmType</span> {
+    Person, Pet, Vehicle, ManualSOS, Unknown,
+};
+
+<span class="c-key">struct</span> <span class="c-type">AlarmEvent</span> {        <span class="c-cmt">// alarm → cloud / record</span>
+    AlarmType type {AlarmType::Unknown};
+    <span class="c-type">uint64_t</span> timestamp_ms {0};
+    <span class="c-key">bool</span> need_cloud_report {true};
+    <span class="c-key">bool</span> need_record {true};
+};
+
+<span class="c-cmt">// 决策链（事实 → 决策 → 动作）：</span>
+<span class="c-cmt">// detect 回 DetectResultSummary（事实）</span>
+<span class="c-cmt">//   → alarm.EvaluateDetectResult() 产出</span>
+<span class="c-cmt">//     AlarmEvent（决策）</span>
+<span class="c-cmt">//   → storage/cloud 执行录像与上报（动作）</span></pre>
+      </div>
+      <div class="note-box"><b>跨层映射约定：</b>同名概念在不同层用各自命名空间表达，仅在接口边界转换一次。例如 <code>libmedia</code> 的 <code>MediaStatusCode::Busy</code> 进入 <code>app/core</code> 时映射为 <code>AovStatusCode::Busy</code>；<code>libsys</code> 的唤醒/电量事实回到 core 后才参与 <code>ResolveRuntimeState()</code> 决策。<code>app</code> 永远拿不到、也不应拿到 AX SDK 句柄或 4G 驱动对象。</div>
+
+      <h3>核心接口</h3>
+      <p>下表是支撑工作模式切换、定时唤醒检测、App 远程唤醒、4G 心跳、低电保护、双规格录像所需的最小接口集。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>接口</th><th>层 / 文件</th><th>核心方法（节选）</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>IAovOrchestrator</code></td>
+              <td><span class="pill app">app/core</span><br><span class="mono">i_aov_orchestrator.hpp</span></td>
+              <td class="mono">Init(policy) · Start/Stop · OnBatteryStatusChanged · OnWakeupEvent · OnDetectResult · OnPreviewRequest · GetRuntimeWorkState · GetRuntimeContext</td>
+            </tr>
+            <tr>
+              <td><code>IConfigService</code></td>
+              <td><span class="pill cfg">app/config</span><br><span class="mono">i_config_service.hpp</span></td>
+              <td class="mono">LoadFactoryConfig · LoadPersistedConfig · GetWorkModePolicy · UpdateWorkModePolicy · UpdateMediaConfig · Persist</td>
+            </tr>
+            <tr>
+              <td><code>ICloudService</code></td>
+              <td><span class="pill cloud">app/cloud</span><br><span class="mono">i_cloud_service.hpp</span></td>
+              <td class="mono">Start/Stop · ReportDeviceState · ReportBatteryStatus · ReportAlarm · OnCloudPreviewRequest · OnCloudConfigUpdate · OnModemHeartbeatState</td>
+            </tr>
+            <tr>
+              <td><code>IPowerService</code></td>
+              <td><span class="pill sys">libsys/power</span><br><span class="mono">i_power_service.hpp</span></td>
+              <td class="mono">EnterSleep · RequestWakeup · ConfigureWakeupTimer(1/3/5/15) · DisableWakeupTimer · GetBatteryStatus · RegisterWakeupCallback</td>
+            </tr>
+            <tr>
+              <td><code>IModemService</code></td>
+              <td><span class="pill sys">libsys/modem</span><br><span class="mono">i_modem_service.hpp</span></td>
+              <td class="mono">Start/Stop · GetLinkState · GetHeartbeatState · RegisterWakeSignalCallback · TriggerHostWakeByGpio · ReportHeartbeatToCloud</td>
+            </tr>
+            <tr>
+              <td><code>IDeviceControlService</code></td>
+              <td><span class="pill sys">libsys/device</span><br><span class="mono">i_device_control_service.hpp</span></td>
+              <td class="mono">SetWakeGpioLevel · SetFillLight(bool) · SetPtzEnabled(bool) · MovePtz</td>
+            </tr>
+            <tr>
+              <td><code>IMediaRuntime</code></td>
+              <td><span class="pill media">libmedia</span><br><span class="mono">i_media_runtime.hpp</span></td>
+              <td class="mono">Init · Start/Stop · ResumeNormalMode · EnterLowPowerMode · ApplyLowPowerRecordProfile(interval) · ApplyNormalRecordProfile(fps) · RequestIdr</td>
+            </tr>
+            <tr>
+              <td><code>IDetectService</code></td>
+              <td><span class="pill media">libmedia/detect</span><br><span class="mono">i_detect_service.hpp</span></td>
+              <td class="mono">StartDetect · StopDetect · RunOnceDetect() → DetectResultSummary · RegisterDetectCallback</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note-box info"><b>接口硬约束：</b><code>app/*</code> 不直接含 AX SDK 头；<code>libsys/modem</code> 不解释云协议；<code>libmedia</code> 不决定业务状态切换。所有启停/配置/状态切换类接口统一返回 <code>StatusCode</code>，SDK 原生错误码不允许穿透到 <code>app/core</code>。</div>
+    </section>
+
+    <!-- ============ SECTION 6 ============ -->
+    <section class="section" id="s6">
+      <h2><span class="badge">06</span>工作模式状态机</h2>
+      <p class="lead"><code>app/core</code> 同时维护"配置模式"（用户设置）与"运行时有效状态"（实际行为），二者不混为一个字段。运行时状态由配置模式 + 电池状态 + 预览状态共同决议（见 <code>ResolveRuntimeState()</code>）。</p>
+
+      <div class="grid-2">
+        <div>
+          <h3>配置模式 → 运行时状态映射</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>配置模式</th><th>条件</th><th>运行时状态</th></tr></thead>
+              <tbody>
+                <tr><td rowspan="1"><span class="pill app">PowerSaving</span></td><td>正常</td><td>SleepPeriodicDetect</td></tr>
+                <tr><td rowspan="2"><span class="pill app">SmartNoSleep</span></td><td>电量 ≥ 70%</td><td>AwakeNormal</td></tr>
+                <tr><td>电量 &lt; 70%</td><td>SleepPeriodicDetect（降级）</td></tr>
+                <tr><td><span class="pill app">UltraLongStandby</span></td><td>—</td><td>SleepAppWakeOnly</td></tr>
+                <tr><td><span class="pill cfg">任意模式</span></td><td>电量 ≤ 保护阈值</td><td class="deny">LowBatteryProtection（覆盖一切）</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>电池阈值规则</h3>
+          <div class="card accent-green">
+            <ul>
+              <li><code>smart_to_save_threshold_pct = 70</code>（降级到省电）</li>
+              <li><code>smart_to_awake_threshold_pct = 80</code>（恢复常电）</li>
+              <li><code>low_battery_protect_threshold_pct = 5~30</code>，默认 <code>10</code></li>
+              <li>退出保护：<code>battery_pct &gt; 阈值 + 10</code></li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <h3>各模式能力约束</h3>
+          <div class="card accent-blue" style="margin-bottom:12px;">
+            <h4>省电模式</h4>
+            <ul>
+              <li>定时唤醒间隔 <code>1 / 3 / 5 / 15</code> 秒</li>
+              <li><b>录像间隔 = 唤醒间隔 = 低功耗取帧间隔</b>（如 1秒1帧）</li>
+              <li>检测到目标 → 恢复常电 + 切 <code>15fps</code> 正常录像</li>
+              <li>无事件 → 回休眠，等待下次唤醒</li>
+            </ul>
+          </div>
+          <div class="card accent-cyan" style="margin-bottom:12px;">
+            <h4>智能不休眠 / 超长待机</h4>
+            <ul>
+              <li>智能不休眠：默认常电，按 70/80 阈值降级与恢复</li>
+              <li>超长待机：不自动唤醒，仅支持 App 远程唤醒查看</li>
+            </ul>
+          </div>
+          <div class="card accent-red">
+            <h4>极低电量保护（运行时保护态）</h4>
+            <ul>
+              <li>不自动定时唤醒；仅允许 App 唤醒查看</li>
+              <li>禁用云台；禁止一键报警；关闭补光灯</li>
+              <li>能力裁剪必须落到接口行为</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+        <!-- ============ SECTION 7 ============ -->
+    <section class="section" id="s7">
+      <h2><span class="badge">07</span> 核心运行时序</h2>
+      <div class="timing-module">
+<section class="timing-section">
+      <p>先覆盖 AOV 运行时最关键的几条链路：定时唤醒检测、事件恢复常电、App 远程预览。它们共同决定了设备端的主行为闭环。</p>
+
+      <div class="seq-card">
+        <h3 class="seq-title">1. 省电模式下的定时唤醒轻量检测</h3>
+        <p class="seq-sub">无事件时按配置间隔进行低功耗取帧与检测；一旦检测到有效目标，切到常电录像链路。这里的“录像间隔 = 定时唤醒间隔 = 低功耗取帧间隔”。</p>
+        <div class="diagram large">
+          <div class="actor" style="left:68px;">定时器</div>
+          <div class="actor" style="left:280px;">app/core</div>
+          <div class="actor" style="left:492px;">libmedia</div>
+          <div class="actor" style="left:704px;">detect</div>
+          <div class="actor" style="left:916px;">record</div>
+          <div class="actor" style="left:1128px;">云端</div>
+          <div class="actor" style="left:1328px;width:104px;">AOV休眠</div>
+
+          <div class="lane" style="left:127px;"></div>
+          <div class="lane" style="left:339px;"></div>
+          <div class="lane" style="left:551px;"></div>
+          <div class="lane" style="left:763px;"></div>
+          <div class="lane" style="left:975px;"></div>
+          <div class="lane" style="left:1187px;"></div>
+          <div class="lane" style="left:1380px;"></div>
+
+          <svg viewBox="0 0 1460 610">
+            <line class="msg solid-green" x1="127" y1="132" x2="339" y2="132"></line>
+            <path class="head arrow-green" d="M 329 128 L 339 132 L 329 136"></path>
+            <text class="label strong" x="173" y="120">定时唤醒事件</text>
+
+            <line class="msg solid-purple" x1="339" y1="174" x2="551" y2="174"></line>
+            <path class="head arrow-purple" d="M 541 170 L 551 174 L 541 178"></path>
+            <text class="label" x="377" y="162">应用低功耗媒体参数</text>
+
+            <line class="msg solid-orange" x1="339" y1="216" x2="975" y2="216"></line>
+            <path class="head arrow-orange" d="M 965 212 L 975 216 L 965 220"></path>
+            <text class="label" x="558" y="204">设置低功耗录像规格（1 秒 1 帧 / 3 秒 1 帧等）</text>
+
+            <line class="msg solid-blue" x1="339" y1="258" x2="763" y2="258"></line>
+            <path class="head arrow-blue" d="M 753 254 L 763 258 L 753 262"></path>
+            <text class="label strong" x="471" y="246">执行一次轻量检测</text>
+
+            <line class="msg soft" x1="763" y1="302" x2="339" y2="302"></line>
+            <path class="head arrow-soft" d="M 349 298 L 339 302 L 349 306"></path>
+            <text class="label" x="503" y="290">返回检测摘要</text>
+
+            <line class="msg solid-purple" x1="339" y1="378" x2="551" y2="378"></line>
+            <path class="head arrow-purple" d="M 541 374 L 551 378 L 541 382"></path>
+            <text class="label strong" x="381" y="366">检测到目标时恢复常电媒体链</text>
+
+            <line class="msg solid-orange" x1="339" y1="420" x2="975" y2="420"></line>
+            <path class="head arrow-orange" d="M 965 416 L 975 420 L 965 424"></path>
+            <text class="label" x="601" y="408">切换为 15fps 事件录像</text>
+
+            <line class="msg solid-cyan" x1="339" y1="462" x2="1187" y2="462"></line>
+            <path class="head arrow-cyan" d="M 1177 458 L 1187 462 L 1177 466"></path>
+            <text class="label" x="730" y="450">准备进入告警与状态上报链路</text>
+
+            <line class="msg soft" x1="339" y1="526" x2="127" y2="526"></line>
+            <path class="head arrow-soft" d="M 137 522 L 127 526 L 137 530"></path>
+            <text class="label" x="147" y="514">无目标时仅重新配置下一次唤醒</text>
+
+            <line class="msg soft" x1="339" y1="568" x2="1380" y2="568"></line>
+            <path class="head arrow-soft" d="M 1370 564 L 1380 568 L 1370 572"></path>
+            <text class="label" x="650" y="556">无目标且无待写入/待上传任务，空闲防抖等待 3-10 秒后回到 AOV 休眠</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="seq-card">
+        <h3 class="seq-title">2. 检测到目标后的恢复常电、抓图、录像、上报</h3>
+        <p class="seq-sub">这条链路是产品化必须补齐的重点。QSDemo 已经有检测、编码、录像基础，但“抓图与告警绑定上云”需要在产品层正式实现。</p>
+        <div class="diagram medium-tall">
+          <div class="actor" style="left:42px;">app/core</div>
+          <div class="actor" style="left:232px;">libmedia</div>
+          <div class="actor" style="left:422px;width:122px;">app/packet</div>
+          <div class="actor" style="left:620px;width:126px;">app/storage</div>
+          <div class="actor" style="left:822px;">app/cloud</div>
+          <div class="actor" style="left:1024px;width:126px;">libsys/SD</div>
+          <div class="actor" style="left:1228px;">云端</div>
+
+          <div class="lane" style="left:101px;"></div>
+          <div class="lane" style="left:291px;"></div>
+          <div class="lane" style="left:483px;"></div>
+          <div class="lane" style="left:683px;"></div>
+          <div class="lane" style="left:881px;"></div>
+          <div class="lane" style="left:1087px;"></div>
+          <div class="lane" style="left:1287px;"></div>
+
+          <div class="note-list" style="left:1192px;top:104px;width:238px;">
+            <div class="note" style="position:static;max-width:none;">检测能力（detect）属于 libmedia，向 app/core 只上送检测事实。</div>
+            <div class="note" style="position:static;max-width:none;">Packet 是媒体帧分发中心，SD 存储和云存并行消费同一批帧。</div>
+            <div class="note" style="position:static;max-width:none;">回休眠由 app/core 汇总 SD、云存、预览状态后统一决策。</div>
+          </div>
+
+          <svg viewBox="0 0 1460 620">
+            <line class="msg solid-blue" x1="291" y1="126" x2="101" y2="126"></line>
+            <path class="head arrow-blue" d="M 111 122 L 101 126 L 111 130"></path>
+            <text class="label strong" x="132" y="114">检测到有效目标</text>
+
+            <line class="msg solid-orange" x1="101" y1="166" x2="1087" y2="166"></line>
+            <path class="head arrow-orange" d="M 1077 162 L 1087 166 L 1077 170"></path>
+            <text class="label" x="462" y="154">SD 上电 / 挂载，保持到录像和云存闭环结束</text>
+
+            <line class="msg solid-purple" x1="101" y1="206" x2="291" y2="206"></line>
+            <path class="head arrow-purple" d="M 281 202 L 291 206 L 281 210"></path>
+            <text class="label" x="130" y="194">恢复常电编码、抓图、录像媒体链</text>
+
+            <line class="msg solid-purple" x1="291" y1="246" x2="483" y2="246"></line>
+            <path class="head arrow-purple" d="M 473 242 L 483 246 L 473 250"></path>
+            <text class="label strong" x="318" y="234">裸编码帧进入 Packet</text>
+
+            <line class="msg solid-orange" x1="483" y1="286" x2="683" y2="286"></line>
+            <path class="head arrow-orange" d="M 673 282 L 683 286 L 673 290"></path>
+            <text class="label" x="512" y="274">分发录像帧</text>
+
+            <line class="msg solid-cyan" x1="483" y1="326" x2="881" y2="326"></line>
+            <path class="head arrow-cyan" d="M 871 322 L 881 326 L 871 330"></path>
+            <text class="label" x="610" y="314">分发云存帧</text>
+
+            <line class="msg solid-orange" x1="683" y1="366" x2="1087" y2="366"></line>
+            <path class="head arrow-orange" d="M 1077 362 L 1087 366 L 1077 370"></path>
+            <text class="label" x="756" y="354">PS/PES 封装 -> 写 SD</text>
+
+            <line class="msg solid-cyan" x1="881" y1="406" x2="1287" y2="406"></line>
+            <path class="head arrow-cyan" d="M 1277 402 L 1287 406 L 1277 410"></path>
+            <text class="label" x="980" y="394">裸帧交云 SDK -> 云存上传</text>
+
+            <line class="msg soft" x1="291" y1="446" x2="881" y2="446"></line>
+            <path class="head arrow-soft" d="M 871 442 L 881 446 L 871 450"></path>
+            <text class="label" x="420" y="434">抓图文件 / 媒体元数据交给告警上报</text>
+
+            <line class="msg solid-cyan" x1="881" y1="486" x2="1287" y2="486"></line>
+            <path class="head arrow-cyan" d="M 1277 482 L 1287 486 L 1277 490"></path>
+            <text class="label strong" x="960" y="474">上报告警消息、抓图、录像索引</text>
+
+            <line class="msg soft" x1="1087" y1="526" x2="101" y2="526"></line>
+            <path class="head arrow-soft" d="M 111 522 L 101 526 L 111 530"></path>
+            <text class="label" x="420" y="514">本地录像关闭文件 + 刷缓存 + 强制落盘完成</text>
+
+            <line class="msg soft" x1="881" y1="556" x2="101" y2="556"></line>
+            <path class="head arrow-soft" d="M 111 552 L 101 556 L 111 560"></path>
+            <text class="label" x="392" y="546">云存成功或明确失败</text>
+
+            <line class="msg soft" x1="101" y1="590" x2="1087" y2="590"></line>
+            <path class="head arrow-soft" d="M 1077 586 L 1087 590 L 1077 594"></path>
+            <text class="label" x="330" y="580">app/core 空闲防抖等待 3-10 秒后，SD 卸载/断电并回到 AOV 休眠</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="seq-card">
+        <h3 class="seq-title">3. App 远程唤醒预览</h3>
+        <p class="seq-sub">App 不直接面对设备内部模块，而是通过云端触发。4G 模组负责远程唤醒，app/core 决定恢复哪些媒体能力，preview 负责具体会话。</p>
+        <div class="diagram medium">
+          <div class="actor" style="left:52px;">手机App</div>
+          <div class="actor" style="left:238px;">云端</div>
+          <div class="actor" style="left:446px;width:126px;">libsys/modem</div>
+          <div class="actor" style="left:664px;width:124px;">libsys/device</div>
+          <div class="actor" style="left:874px;">app/core</div>
+          <div class="actor" style="left:1084px;">libmedia</div>
+          <div class="actor" style="left:1220px;width:118px;">app/packet</div>
+          <div class="actor" style="left:1340px;width:102px;">app/cloud</div>
+
+          <div class="lane" style="left:111px;"></div>
+          <div class="lane" style="left:297px;"></div>
+          <div class="lane" style="left:509px;"></div>
+          <div class="lane" style="left:726px;"></div>
+          <div class="lane" style="left:933px;"></div>
+          <div class="lane" style="left:1143px;"></div>
+          <div class="lane" style="left:1279px;"></div>
+          <div class="lane" style="left:1391px;"></div>
+
+          <svg viewBox="0 0 1460 520">
+            <line class="msg solid-blue" x1="111" y1="122" x2="297" y2="122"></line>
+            <path class="head arrow-blue" d="M 287 118 L 297 122 L 287 126"></path>
+            <text class="label strong" x="162" y="110">发起预览请求</text>
+
+            <line class="msg solid-blue" x1="297" y1="164" x2="509" y2="164"></line>
+            <path class="head arrow-blue" d="M 499 160 L 509 164 L 499 168"></path>
+            <text class="label" x="346" y="152">下发 4G 唤醒指令</text>
+
+            <line class="msg soft" x1="509" y1="208" x2="726" y2="208"></line>
+            <path class="head arrow-soft" d="M 716 204 L 726 208 L 716 212"></path>
+            <text class="label" x="587" y="196">拉 GPIO 唤醒主控</text>
+
+            <line class="msg soft" x1="509" y1="250" x2="933" y2="250"></line>
+            <path class="head arrow-soft" d="M 923 246 L 933 250 L 923 254"></path>
+            <text class="label" x="638" y="238">通知核心收到远程唤醒事件</text>
+
+            <line class="msg solid-purple" x1="933" y1="294" x2="1143" y2="294"></line>
+            <path class="head arrow-purple" d="M 1133 290 L 1143 294 L 1133 298"></path>
+            <text class="label strong" x="964" y="282">恢复预览媒体链</text>
+
+            <line class="msg solid-blue" x1="933" y1="336" x2="1391" y2="336"></line>
+            <path class="head arrow-blue" d="M 1381 332 L 1391 336 L 1381 340"></path>
+            <text class="label" x="1084" y="324">启动云端预览会话</text>
+
+            <line class="msg solid-purple" x1="1143" y1="374" x2="1279" y2="374"></line>
+            <path class="head arrow-purple" d="M 1269 370 L 1279 374 L 1269 378"></path>
+            <text class="label" x="1162" y="362">码流进 Packet</text>
+
+            <line class="msg solid-purple" x1="1279" y1="396" x2="1391" y2="396"></line>
+            <path class="head arrow-purple" d="M 1381 392 L 1391 396 L 1381 400"></path>
+            <text class="label" x="1292" y="384">分发给云端</text>
+
+            <line class="msg solid-blue" x1="1391" y1="420" x2="297" y2="420"></line>
+            <path class="head arrow-blue" d="M 307 416 L 297 420 L 307 424"></path>
+            <text class="label" x="820" y="408">云端转发预览码流给手机 App</text>
+
+            <line class="msg solid-blue" x1="297" y1="462" x2="111" y2="462"></line>
+            <path class="head arrow-blue" d="M 121 458 L 111 462 L 121 466"></path>
+            <text class="label strong" x="147" y="450">手机 App 开始预览</text>
+
+            <line class="msg soft" x1="1391" y1="488" x2="933" y2="488"></line>
+            <path class="head arrow-soft" d="M 943 484 L 933 488 L 943 492"></path>
+            <text class="label" x="1042" y="476">预览结束后释放会话</text>
+
+            <line class="msg soft" x1="933" y1="508" x2="1391" y2="508"></line>
+            <path class="head arrow-soft" d="M 1381 504 L 1391 508 L 1381 512"></path>
+            <text class="label" x="980" y="500">无录像/云存任务，空闲防抖等待后回到 AOV 休眠</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+<section class="timing-section">
+      <h2>模式、电量、配置与状态时序</h2>
+      <p>第二组时序对应产品化最容易被忽视但必须落地的部分：模式裁剪、电量保护、配置下发与状态同步。</p>
+
+      <div class="seq-card">
+        <h3 class="seq-title">4. 智能不休眠模式下的电量降级与恢复</h3>
+        <p class="seq-sub">智能不休眠并不是永久常电。它会受电量阈值控制：电量下降时降级为省电行为，恢复后再切回常电。</p>
+        <div class="diagram small">
+          <div class="actor" style="left:120px;width:140px;">电池 / 电源</div>
+          <div class="actor" style="left:420px;">app/core</div>
+          <div class="actor" style="left:720px;">libmedia</div>
+          <div class="actor" style="left:1020px;">云端</div>
+          <div class="actor" style="left:1236px;width:120px;">AOV休眠</div>
+
+          <div class="lane" style="left:190px;"></div>
+          <div class="lane" style="left:479px;"></div>
+          <div class="lane" style="left:779px;"></div>
+          <div class="lane" style="left:1079px;"></div>
+          <div class="lane" style="left:1296px;"></div>
+
+          <svg viewBox="0 0 1460 450">
+            <line class="msg solid-green" x1="190" y1="128" x2="479" y2="128"></line>
+            <path class="head arrow-green" d="M 469 124 L 479 128 L 469 132"></path>
+            <text class="label strong" x="256" y="116">电量低于 70%</text>
+
+            <line class="msg solid-purple" x1="479" y1="174" x2="779" y2="174"></line>
+            <path class="head arrow-purple" d="M 769 170 L 779 174 L 769 178"></path>
+            <text class="label" x="538" y="162">降级为省电模式媒体行为</text>
+
+            <line class="msg solid-cyan" x1="479" y1="220" x2="1079" y2="220"></line>
+            <path class="head arrow-cyan" d="M 1069 216 L 1079 220 L 1069 224"></path>
+            <text class="label" x="706" y="208">上报当前模式已切到省电</text>
+
+            <line class="msg solid-green" x1="190" y1="292" x2="479" y2="292"></line>
+            <path class="head arrow-green" d="M 469 288 L 479 292 L 469 296"></path>
+            <text class="label strong" x="260" y="280">电量高于 80%</text>
+
+            <line class="msg solid-purple" x1="479" y1="338" x2="779" y2="338"></line>
+            <path class="head arrow-purple" d="M 769 334 L 779 338 L 769 342"></path>
+            <text class="label" x="568" y="326">恢复常电媒体行为</text>
+
+            <line class="msg solid-cyan" x1="479" y1="384" x2="1079" y2="384"></line>
+            <path class="head arrow-cyan" d="M 1069 380 L 1079 384 L 1069 388"></path>
+            <text class="label" x="684" y="372">上报模式恢复为智能不休眠</text>
+
+            <line class="msg soft" x1="479" y1="424" x2="1296" y2="424"></line>
+            <path class="head arrow-soft" d="M 1286 420 L 1296 424 L 1286 428"></path>
+            <text class="label" x="650" y="412">省电运行态下，任务完成并空闲防抖等待后重新进入 AOV 休眠</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="seq-card">
+        <h3 class="seq-title">5. 极低电量保护进入与退出</h3>
+        <p class="seq-sub">极低电量保护是运行时保护态，不是普通配置态。进入保护后，设备只保留 App 唤醒查看能力，关闭补光灯、禁用云台，不走常规报警链路。</p>
+        <div class="diagram medium">
+          <div class="actor" style="left:72px;width:140px;">电池 / 电源</div>
+          <div class="actor" style="left:330px;">app/core</div>
+          <div class="actor" style="left:588px;">libmedia</div>
+          <div class="actor" style="left:846px;width:128px;">libsys/device</div>
+          <div class="actor" style="left:1104px;">云端</div>
+          <div class="actor" style="left:1308px;width:116px;">AOV休眠</div>
+
+          <div class="lane" style="left:142px;"></div>
+          <div class="lane" style="left:389px;"></div>
+          <div class="lane" style="left:647px;"></div>
+          <div class="lane" style="left:910px;"></div>
+          <div class="lane" style="left:1163px;"></div>
+          <div class="lane" style="left:1366px;"></div>
+
+          <div class="note-list" style="left:1218px;top:206px;width:220px;">
+            <div class="note" style="position:static;max-width:none;">保护态下不自动定时唤醒。</div>
+            <div class="note" style="position:static;max-width:none;">保护态下不支持一键报警。</div>
+            <div class="note" style="position:static;max-width:none;">保护态下仅允许 App 远程查看。</div>
+          </div>
+
+          <svg viewBox="0 0 1460 520">
+            <line class="msg solid-green" x1="142" y1="126" x2="389" y2="126"></line>
+            <path class="head arrow-green" d="M 379 122 L 389 126 L 379 130"></path>
+            <text class="label strong" x="200" y="114">电量低于保护阈值</text>
+
+            <line class="msg solid-purple" x1="389" y1="174" x2="647" y2="174"></line>
+            <path class="head arrow-purple" d="M 637 170 L 647 174 L 637 178"></path>
+            <text class="label" x="446" y="162">关闭自动检测与常电媒体链</text>
+
+            <line class="msg solid-orange" x1="389" y1="222" x2="910" y2="222"></line>
+            <path class="head arrow-orange" d="M 900 218 L 910 222 L 900 226"></path>
+            <text class="label" x="561" y="210">关闭补光灯、禁用云台与相关硬件能力</text>
+
+            <line class="msg solid-cyan" x1="389" y1="270" x2="1163" y2="270"></line>
+            <path class="head arrow-cyan" d="M 1153 266 L 1163 270 L 1153 274"></path>
+            <text class="label strong" x="674" y="258">上报进入极低电量保护状态</text>
+
+            <line class="msg solid-green" x1="142" y1="356" x2="389" y2="356"></line>
+            <path class="head arrow-green" d="M 379 352 L 389 356 L 379 360"></path>
+            <text class="label" x="188" y="344">电量恢复到阈值 + 10%</text>
+
+            <line class="msg soft" x1="389" y1="404" x2="647" y2="404"></line>
+            <path class="head arrow-soft" d="M 637 400 L 647 404 L 637 408"></path>
+            <text class="label" x="455" y="392">解除保护，恢复可用媒体能力</text>
+
+            <line class="msg soft" x1="389" y1="452" x2="1163" y2="452"></line>
+            <path class="head arrow-soft" d="M 1153 448 L 1163 452 L 1153 456"></path>
+            <text class="label" x="722" y="440">上报退出极低电量保护</text>
+
+            <line class="msg soft" x1="389" y1="494" x2="1366" y2="494"></line>
+            <path class="head arrow-soft" d="M 1356 490 L 1366 494 L 1356 498"></path>
+            <text class="label" x="638" y="482">保护态或省电态下，无业务任务并空闲防抖等待后回到 AOV 休眠</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="seq-card">
+        <h3 class="seq-title">6. 配置下发与设备生效</h3>
+        <p class="seq-sub">产品化后，工作模式、唤醒间隔、检测类型、录像规格、补光灯与云台能力都要通过统一配置链路下发并生效，而不是散落在 demo 参数里临时生效。</p>
+        <div class="diagram medium">
+          <div class="actor" style="left:44px;width:126px;">手机App</div>
+          <div class="actor" style="left:246px;">云端</div>
+          <div class="actor" style="left:448px;">app/cloud</div>
+          <div class="actor" style="left:650px;">app/config</div>
+          <div class="actor" style="left:852px;">app/core</div>
+          <div class="actor" style="left:1054px;">libmedia</div>
+          <div class="actor" style="left:1256px;width:126px;">libsys/device</div>
+
+          <div class="lane" style="left:107px;"></div>
+          <div class="lane" style="left:305px;"></div>
+          <div class="lane" style="left:507px;"></div>
+          <div class="lane" style="left:709px;"></div>
+          <div class="lane" style="left:911px;"></div>
+          <div class="lane" style="left:1113px;"></div>
+          <div class="lane" style="left:1319px;"></div>
+
+          <svg viewBox="0 0 1460 520">
+            <line class="msg solid-orange" x1="107" y1="126" x2="305" y2="126"></line>
+            <path class="head arrow-orange" d="M 295 122 L 305 126 L 295 130"></path>
+            <text class="label strong" x="145" y="114">修改工作模式 / 参数</text>
+
+            <line class="msg solid-orange" x1="305" y1="170" x2="507" y2="170"></line>
+            <path class="head arrow-orange" d="M 497 166 L 507 170 L 497 174"></path>
+            <text class="label" x="350" y="158">下发配置消息</text>
+
+            <line class="msg solid-orange" x1="507" y1="214" x2="709" y2="214"></line>
+            <path class="head arrow-orange" d="M 699 210 L 709 214 L 699 218"></path>
+            <text class="label" x="550" y="202">写入配置并持久化</text>
+
+            <line class="msg soft" x1="709" y1="258" x2="911" y2="258"></line>
+            <path class="head arrow-soft" d="M 901 254 L 911 258 L 901 262"></path>
+            <text class="label" x="750" y="246">通知核心配置已变化</text>
+
+            <line class="msg solid-purple" x1="911" y1="302" x2="1113" y2="302"></line>
+            <path class="head arrow-purple" d="M 1103 298 L 1113 302 L 1103 306"></path>
+            <text class="label" x="960" y="290">应用录像 / 检测 / 码流参数</text>
+
+            <line class="msg solid-green" x1="911" y1="346" x2="1319" y2="346"></line>
+            <path class="head arrow-green" d="M 1309 342 L 1319 346 L 1309 350"></path>
+            <text class="label" x="1035" y="334">应用补光灯 / 云台 / 低功耗硬件参数</text>
+
+            <line class="msg soft" x1="911" y1="410" x2="507" y2="410"></line>
+            <path class="head arrow-soft" d="M 517 406 L 507 410 L 517 414"></path>
+            <text class="label" x="652" y="398">返回生效结果与最新状态</text>
+
+            <line class="msg solid-orange" x1="507" y1="454" x2="107" y2="454"></line>
+            <path class="head arrow-orange" d="M 117 450 L 107 454 L 117 458"></path>
+            <text class="label strong" x="190" y="442">展示已生效配置</text>
+
+            <line class="msg soft" x1="911" y1="494" x2="1319" y2="494"></line>
+            <path class="head arrow-soft" d="M 1309 490 L 1319 494 L 1309 498"></path>
+            <text class="label" x="942" y="482">配置生效且无业务任务，空闲防抖等待后恢复 AOV 休眠</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="seq-card">
+        <h3 class="seq-title">7. 4G 心跳与状态同步</h3>
+        <p class="seq-sub">4G 模组自身约每 1 分钟间歇醒来，只维持<strong>在线 / 信号 / 网络</strong>这类模组自身状态，让云端"找得到设备"。<strong>电量来自常驻 MCU（2 路 ADC 采样，经 I2C 上报主控）、模式 / 告警来自主控</strong>，二者都只能在主控 CPU 唤醒窗口上报，是<strong>上次唤醒时的快照，并非实时</strong>。App 看到的电量 / 模式应按"截至某时刻"理解。
+        <div class="diagram small">
+          <div class="actor" style="left:120px;width:132px;">libsys/modem</div>
+          <div class="actor" style="left:430px;">app/cloud</div>
+          <div class="actor" style="left:740px;">云端</div>
+          <div class="actor" style="left:1050px;width:132px;">手机App</div>
+          <div class="actor" style="left:1246px;width:120px;">AOV休眠</div>
+
+          <div class="lane" style="left:186px;"></div>
+          <div class="lane" style="left:489px;"></div>
+          <div class="lane" style="left:799px;"></div>
+          <div class="lane" style="left:1116px;"></div>
+          <div class="lane" style="left:1306px;"></div>
+
+          <svg viewBox="0 0 1460 450">
+            <line class="msg solid-cyan" x1="186" y1="128" x2="489" y2="128"></line>
+            <path class="head arrow-cyan" d="M 479 124 L 489 128 L 479 132"></path>
+            <text class="label strong" x="262" y="116">模组上报在线、信号、网络（自身 ~1 分钟周期）</text>
+
+            <line class="msg solid-cyan" x1="489" y1="182" x2="799" y2="182"></line>
+            <path class="head arrow-cyan" d="M 789 178 L 799 182 L 789 186"></path>
+            <text class="label" x="540" y="170">主控醒时：读 MCU 电量 + 模式，组织设备状态消息</text>
+
+            <line class="msg soft" x1="799" y1="236" x2="1116" y2="236"></line>
+            <path class="head arrow-soft" d="M 1106 232 L 1116 236 L 1106 240"></path>
+            <text class="label" x="860" y="224">向 App 展示在线与（快照）电量 / 模式</text>
+
+            <line class="msg soft" x1="489" y1="314" x2="799" y2="314"></line>
+            <path class="head arrow-soft" d="M 789 310 L 799 314 L 789 318"></path>
+            <text class="label" x="560" y="302">同步告警数、预览状态、录像状态（均为快照）</text>
+
+            <line class="msg soft" x1="799" y1="368" x2="1116" y2="368"></line>
+            <path class="head arrow-soft" d="M 1106 364 L 1116 368 L 1106 372"></path>
+            <text class="label" x="880" y="356">App 按"截至 XX:XX"展示，非实时</text>
+
+            <line class="msg soft" x1="489" y1="414" x2="1306" y2="414"></line>
+            <path class="head arrow-soft" d="M 1296 410 L 1306 414 L 1296 418"></path>
+            <text class="label" x="648" y="402">仅心跳/状态同步完成后，空闲防抖等待，再保持或返回 AOV 休眠</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+                </div>
+    </section>
+
+    <!-- ============ SECTION 8 ============ -->
+    <section class="section" id="s8">
+      <h2><span class="badge">08</span>代码目录框架</h2>
+      <p class="lead">下方左侧是正式目录树；右侧是当前已落地的接口 + stub 骨架（每个接口都有 <code>i_*.hpp</code> 抽象与 <code>*_stub.cpp</code> 占位实现，由 <code>CMakeLists.txt</code> 编入 <code>ax615_aov_device_stubs</code> 静态库）。</p>
+      <div class="grid-2">
+        <div>
+          <h3>正式目录树</h3>
+<pre><span class="c-dir">code_v2/</span>
+├─ <span class="c-dir">app/</span>                 <span class="c-cmt"># 业务编排层</span>
+│  ├─ entry/             <span class="c-cmt"># 入口 / bootstrap / 依赖装配</span>
+│  ├─ core/              <span class="c-cmt"># AovOrchestrator 主状态机</span>
+│  ├─ cloud/             <span class="c-cmt"># 云 / 直播回放 / 云存 / 控制</span>
+│  │  └─ ota/            <span class="c-cmt"># OTA 升级流程与云端升级命令</span>
+│  ├─ config/            <span class="c-cmt"># 配置装载 / 校验 / 分发</span>
+│  ├─ alarm/             <span class="c-cmt"># 报警类型与策略</span>
+│  ├─ packet/            <span class="c-cmt"># 裸媒体帧承载 / 缓存 / 分发 / 引用计数 / 背压</span>
+│  ├─ storage/           <span class="c-cmt"># 录像策略 / 索引 / 文件落盘</span>
+│  │  └─ dhfs/           <span class="c-cmt"># 码流文件外层私有协议封装</span>
+│  ├─ preview/           <span class="c-cmt"># 预览会话</span>
+│  ├─ domain/            <span class="c-cmt"># 业务域类型 (AlarmEvent…)</span>
+│  └─ common/
+│
+├─ <span class="c-dir">libmedia/</span>            <span class="c-cmt"># 媒体能力层</span>
+│  ├─ include/           <span class="c-cmt"># 对外公开接口</span>
+│  ├─ interface/         <span class="c-cmt"># 纯抽象接口</span>
+│  ├─ adapter/ax615/     <span class="c-cmt"># AX615 SDK 隔离</span>
+│  ├─ pipeline/          <span class="c-cmt"># 媒体链装配</span>
+│  ├─ detect/ osd/ rtsp/ <span class="c-cmt"># 检测 / 叠加 / 流输出</span>
+│  └─ common/
+│
+├─ <span class="c-dir">libsys/</span>              <span class="c-cmt"># 系统与硬件层</span>
+│  ├─ include/
+│  ├─ power/             <span class="c-cmt"># sleep/wake/timer/电池</span>
+│  ├─ modem/             <span class="c-cmt"># 4G 模组 / GPIO 唤醒</span>
+│  ├─ device/            <span class="c-cmt"># gpio/i2c/pwm/云台/补光/sd卡检测</span>
+│  ├─ network/           <span class="c-cmt"># 网络状态</span>
+│  ├─ os/                <span class="c-cmt"># 线程/锁/时间/重启</span>
+│  └─ common/
+│
+├─ <span class="c-dir">Depend/</span>              <span class="c-cmt"># 依赖集中区</span>
+│  ├─ ax_sdk/ third_party/
+│  ├─ prebuilt/ toolchain/
+│
+├─ <span class="c-dir">products/</span>            <span class="c-cmt"># 产品配置层</span>
+│  ├─ common/
+│  └─ ax615_default/{factory,schema,profile}
+│
+├─ <span class="c-dir">tests/</span>  {unit, integration, mock}
+├─ <span class="c-dir">tools/</span>  {build, deploy, pack, debug}
+├─ <span class="c-dir">docs/</span>
+└─ CMakeLists.txt</pre>
+        </div>
+        <div>
+          <h3>已落地骨架（接口 + stub）</h3>
+<pre><span class="c-dir">include/common/</span>          <span class="c-cmt"># 全局公共头</span>
+  status_code.hpp  error_info.hpp
+  callback.hpp     event_header.hpp
+
+<span class="c-dir">app/</span>
+  core/    aov_types.hpp · i_aov_orchestrator.hpp
+           aov_orchestrator_stub.{hpp,cpp}
+  config/  i_config_service.hpp · *_stub.{hpp,cpp}
+  cloud/   i_cloud_service.hpp · *_stub.{hpp,cpp}
+           ota/ i_ota_service.hpp · *_stub.{hpp,cpp}
+  packet/  i_packet_service.hpp · *_stub.{hpp,cpp}
+  preview/ i_preview_service.hpp · *_stub.{hpp,cpp}
+  storage/ i_storage_policy_service.hpp · *_stub.{hpp,cpp}
+           dhfs/ i_dhfs_packager.hpp · *_stub.{hpp,cpp}
+  alarm/   i_alarm_service.hpp · *_stub.{hpp,cpp}
+  domain/  domain_types.hpp
+
+<span class="c-dir">libsys/</span>
+  power/   i_power_service.hpp · *_stub.{hpp,cpp}
+  modem/   i_modem_service.hpp · *_stub.{hpp,cpp}
+  device/  i_device_control_service.hpp · *_stub
+  network/ i_network_service.hpp · *_stub
+  common/  sys_types.hpp
+
+<span class="c-dir">libmedia/</span>
+  include/ i_media_runtime.hpp · media_runtime_stub
+  detect/  i_detect_service.hpp · *_stub
+  osd/     i_osd_service.hpp · *_stub
+  common/  media_types.hpp</pre>
+          <div class="note-box info" style="margin-top:14px;"><b>命名约定：</b>每个能力 = 一个 <code>i_xxx.hpp</code>（纯虚接口）+ 一个 <code>xxx_stub.{hpp,cpp}</code>（可编译占位实现）。后续接 AX615/QSDemo 真实实现时，只替换 stub，接口与上层调用不变。遵循"多个小文件优于少数大文件"。</div>
+          <div class="note-box" style="margin-top:14px;"><b>Packet 当前策略：</b><code>app/packet</code> 承接 <code>libmedia</code> 输出的裸编码帧，不再加私有帧头/尾，也不在下游做剥头动作。Packet 统一承担缓存、跨线程分发、引用计数和背压控制；SD 卡链路在 <code>app/storage/dhfs</code> 内做 PS/PES 封装，云端和预览链路直接消费裸帧或交给云 SDK 封装。</div>
+          <div class="note-box" style="margin-top:14px;"><b>Storage 迁移策略：</b><code>app/storage</code> 当前先建立 <code>PacketFrame -&gt; StorageService -&gt; DhfsWriter</code> 主链，参考 <code>Apps/Kylin/comps/Storage/PSEncapsulation.*</code> 迁移 PS/PES 封装；<code>Depend/third_party/include/DHFS</code> 与 <code>Depend/third_party/lib/libDHFS.a</code> 提供 DHFS 文件系统接口。下一任务补齐真实 <code>PS/PES</code> 封装与 <code>DHFS</code> 写盘，把 <code>DhfsWriterStub</code> 替换为真实 writer。<code>PSAnalysis.*</code> 属于回放/下载解析，<code>SDStoragePublic.*</code> 属于旧产品 SD 策略与公共工具，先记录为后续迁移项，本阶段不搬。</div>
+          <div class="note-box" style="margin-top:14px;"><b>AOV 回休眠策略：</b>所有业务链路进入终态后，<code>app/core</code> 不立即休眠，而是启动“空闲防抖等待（3-10 秒）”。等待期间若 App 预览、告警、云控或录像再次触发，则取消本次休眠；等待到期后再次确认本地录像已“关闭文件 + 刷缓存 + 强制落盘”、云存已“成功或明确失败”，再由 <code>libsys/power</code> 执行 AOV 休眠。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SECTION 9 ============ -->
+    <section class="section" id="s9">
+      <h2><span class="badge">09</span>事件 / 回调 / 状态码规范</h2>
+      <p class="lead">统一跨模块的事件表达、回调线程边界与返回码，避免每个模块各发明一套。</p>
+      <div class="grid-3">
+        <div class="card accent-blue">
+          <h4>事件模型</h4>
+          <ul>
+            <li>四类：电源/系统 · 媒体检测 · 云/App · 会话/录像</li>
+            <li>统一 <code>EventHeader{timestamp_ms, sequence}</code></li>
+            <li>命名用完成式：<code>WakeupTriggeredEvent</code>、<code>DetectCompletedEvent</code></li>
+            <li>事件只携带事实，不携带"应该怎么办"</li>
+            <li>决策只放 <code>app/core</code></li>
+          </ul>
+        </div>
+        <div class="card accent-green">
+          <h4>回调与线程模型</h4>
+          <ul>
+            <li>底层只"通知事件发生"，不做重业务</li>
+            <li>统一 <code>EventCallback&lt;T&gt; = function&lt;void(const T&amp;)&gt;</code></li>
+            <li>媒体线程禁止直接做云交互/复杂决策</li>
+            <li>跨模块事件汇聚到 core 单线程消费</li>
+            <li>禁止回调里阻塞网络 / 重磁盘 IO / 递归切状态</li>
+          </ul>
+        </div>
+        <div class="card accent-orange">
+          <h4>状态码规范</h4>
+          <ul>
+            <li>全局 <code>StatusCode</code>：Ok / InvalidArgument / InvalidState / Busy / Timeout / Unsupported / NoResource…</li>
+            <li>启停/配置/状态切换类不只返回 <code>bool</code></li>
+            <li>需保留底层细节用 <code>ErrorInfo{code, vendor_code, message}</code></li>
+            <li>SDK 原生错误码不穿透到业务层</li>
+            <li>日志用于诊断，不能解析日志决定业务流程</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+        <!-- ============ SECTION 10 ============ -->
+    <section class="section" id="s10">
+      <h2><span class="badge">10</span>计划实现顺序</h2>
+      <p class="lead">按“先主链、再复用、后细化”的顺序推进。优先打通 AOV 休眠 / 唤醒、检测、录像、预览、上报闭环；可复用能力尽量先通过适配层接入，减少重复开发。</p>
+      <div class="grid-3">
+        <div class="card accent-blue">
+          <h4>① 状态机与配置主链</h4>
+          <ul>
+            <li><code>app/core</code> + <code>app/config</code></li>
+            <li>工作模式、电量门限、定时唤醒间隔</li>
+            <li>先固化配置生效链与运行态决策</li>
+            <li>AOV 休眠期间允许 App/云端修改参数，但只写入云端目标配置 <code>DesiredConfig</code>；设备实际生效配置 <code>ActiveConfig</code> 等设备下次唤醒、同步、校验并应用成功后更新</li>
+            <li>普通参数不为立即生效单独唤醒设备；检测开关、检测类型、灵敏度、AOV 唤醒间隔、事件录像时长等在下次 PIR/定时/远程唤醒后同步并生效</li>
+            <li>配置状态需可追踪：已同步、待生效、已生效、校验失败、需要重启、需要唤醒执行</li>
+          </ul>
+        </div>
+        <div class="card accent-green">
+          <h4>② 系统输入与唤醒链路</h4>
+          <ul>
+            <li><code>libsys/power</code> + <code>libsys/modem</code> + <code>libsys/device</code></li>
+            <li>定时唤醒、远程唤醒 GPIO、4G 在线与心跳</li>
+            <li>优先复用现有 4G 模块能力，补齐心跳适配</li>
+          </ul>
+        </div>
+        <div class="card accent-purple">
+          <h4>③ 媒体生产与 Packet 主链</h4>
+          <ul>
+            <li><code>libmedia</code> + <code>app/packet</code></li>
+            <li><code>libmedia</code> 负责低功耗取帧、常电编码、检测、抓图、OSD、媒体链启停</li>
+            <li><code>app/packet</code> 负责裸编码帧承载、缓存、引用计数、跨线程分发、背压控制</li>
+            <li>主链重点：<code>libmedia -&gt; app/packet</code>，这里不承载预览和录像业务决策</li>
+          </ul>
+          <div class="note-box info" style="margin-top:12px;">
+            <b>app/packet 开发阶段：</b>
+            <ol>
+              <li>阶段 1：建立 <code>IPacketService</code>、<code>PacketFrame</code>、<code>MediaPacketRouter</code>，先用内存版实现接收 <code>libmedia</code> 裸码流并分发给 SD 和云端。</li>
+              <li>阶段 2：填充产品化 Packet 依赖，接入 <code>Depend/third_party/include</code> 与 <code>Depend/third_party/lib/libPacket.a</code>，替换底层内存分配和引用计数。</li>
+              <li>阶段 3：对接 <code>libmedia::StreamFrameCallback</code>，把 VENC/JENC/Audio 裸帧统一发布到 Packet，不加私有帧头。</li>
+              <li>阶段 4：接入 <code>app/storage</code> 和 <code>app/cloud</code> 两类当前消费者，补齐背压、丢帧策略、统计和退出 drain；<code>app/preview</code> 仅作为预留消费者。</li>
+            </ol>
+          </div>
+        </div>
+        <div class="card accent-orange">
+          <h4>④ 本地存储链路</h4>
+          <ul>
+            <li><code>app/storage</code> + <code>app/storage/dhfs</code> + <code>libsys/SD</code></li>
+            <li>SD 卡录像：<code>Packet 裸帧 -&gt; PS/PES 封装 -&gt; 写 SD 卡文件 -&gt; 关闭文件 + 刷缓存 + 强制落盘</code></li>
+            <li><code>app/storage</code> 负责本地录像生命周期、空间策略、目录策略和写盘调度</li>
+            <li><code>app/storage/dhfs</code> 负责 PS/PES 封装和 SD 卡文件写入</li>
+            <li>近期迁移：<code>PSEncapsulation.*</code>；后续迁移：<code>PSAnalysis.*</code> 用于回放/下载，<code>SDStoragePublic.*</code> 用于旧产品 SD 策略参考</li>
+            <li><code>libsys/SD</code> 只负责 SD 检测、在线状态、挂载、卸载、上电/断电等驱动层能力</li>
+            <li>SD 卡低功耗策略：上电 / 挂载 / 保持挂载 / 写盘 / 卸载 / 断电，避免事件录像期间频繁挂载卸载</li>
+          </ul>
+        </div>
+        <div class="card accent-cyan">
+          <h4>⑤ 云端交互与云存链路</h4>
+          <ul>
+            <li><code>app/cloud</code> + <code>app/alarm</code> + <code>app/preview</code></li>
+            <li>云端预览：<code>Packet 裸帧 -&gt; 云 SDK 封装 -&gt; 云端 -&gt; 手机 App 预览</code></li>
+            <li>云存：<code>Packet 裸帧 -&gt; 云存 SDK 封装 -&gt; 云端存储 -&gt; 成功或明确失败后回 app/core</code></li>
+            <li>告警：抓图 / 录像索引 / 告警消息通过 <code>app/cloud</code> 上报云端</li>
+            <li>同时承接配置下发、状态回传、直播回放和控制命令</li>
+          </ul>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px;">
+        <div class="card accent-orange">
+          <h4>可复用模块</h4>
+          <ul>
+            <li>4G 模块：远程唤醒触发、在线检测、心跳适配</li>
+            <li>腾讯云配置接口：配置下发、状态同步、命令回执</li>
+            <li>文件系统：区分常电模式与 AOV 模式下的存储差异</li>
+            <li>云台算法：沿用现有控制与跟踪相关能力</li>
+            <li>Flash：参数持久化、工厂配置、运行配置存储</li>
+          </ul>
+        </div>
+        <div class="card accent-gray">
+          <h4>落地注意点</h4>
+          <ul>
+            <li>挂载点、目录、空间检查与 SD 卡写盘策略统一收口到 <code>app/storage</code></li>
+            <li>码流文件外层私有协议统一收口到 <code>app/storage/dhfs</code>，不下沉到 <code>libmedia</code></li>
+            <li>媒体、4G、云端三条链先打通最小闭环，再补充云台、补光灯、抓图优化</li>
+            <li>芯片 SDK、4G 模组、云协议的替换范围只允许收口在适配层</li>
+            <li>分辨率、码率、帧率、编码格式、OSD、音频编码等媒体链参数，在恢复常电、启动预览或启动录像前应用；如果当前媒体链已运行，需按“停止链路 → 应用配置 → 重启链路”处理</li>
+            <li>实时预览、远程唤醒、云台控制、手动抓图、手动录像、格式化 SD 卡、重启和升级属于控制命令，不归入普通配置；这类命令可以唤醒设备并要求执行回执</li>
+            <li>进入 AOV 休眠前必须保证本机已应用配置持久化完成，未生效配置保留为待生效状态</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <div class="doc-footer">
+      AOV 设备端软件设计文档 · code_v2 汇总冻结稿 ·
+      架构 / 数据链路 / 关键时序 / 代码目录框架<br>
+      本文件优先级高于个人临时写法；若实现与本文档冲突，应先改设计，再改代码。
+    </div>
+  </div>
+</body>
+</html>
