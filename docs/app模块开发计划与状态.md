@@ -17,12 +17,12 @@
 | 模块 | 当前状态 | 说明 |
 | --- | --- | --- |
 | `app/Build` | DONE | 已支持交叉编译 `Kylin`，支持 `build/clean/distclean`，并接入 Depend 预编译库链接开关 |
-| `app/config` | DONE | 配置结构体、默认值、校验、Desired/Active/Pending 框架已完成 |
-| `app/cloud` | DOING | 属性/动作/状态映射已完成，TencentCloudService 骨架已完成，cloud packet sink、直播推流适配层、腾讯物模型桥接已接入，generated SDK 回调和云存推流待接 |
-| `app/core` | DOING | 状态机、配置应用、drain 判断已有合同测试；已新增 app runtime，后续继续接真实事件 |
+| `app/config` | DONE | 配置结构体、默认值、校验、Desired/Active/Pending、关键配置持久化已完成 |
+| `app/cloud` | DONE | 属性/动作/状态映射、TencentCloudService、cloud packet sink、直播/云存推流适配、腾讯物模型桥接、generated SDK 回调已接入；真实板端腾讯 SDK 联调属于板端验证项 |
+| `app/core` | DONE | 状态机、配置应用、drain 判断、云端动作执行器、检测告警联动、app runtime 主链路已有合同测试 |
 | `app/packet` | DONE | 当前已有媒体帧承载、订阅分发、storage/cloud sink 基础链路；后续接真实 Packet 库为优化项 |
-| `app/storage` | DOING | Packet 到 storage stub 链路已完成；真实 PS/PES + DHFS 写盘待做 |
-| `app/alarm` | DOING | 告警配置联动字段已接入；防抖、布防时间、声光实际执行待补 |
+| `app/storage` | BLOCKED | Packet 到 storage stub 链路已完成；真实 PS/PES + DHFS 写盘已单独输出设计文档，后续由 storage 同事实现 |
+| `app/alarm` | DONE | 告警配置联动字段、防抖、布防时间、检测告警触发本地录像/云存闭环已接入；声光执行复用 core command/libsys device |
 | `app/entry` | DONE | 已从 stub bootstrap 切换为 app runtime bootstrap |
 | `app/domain` | LATER | 当前已基本空置，后续确认无引用后删除目录 |
 
@@ -32,11 +32,16 @@
 
 ```text
 code_v2/CMakeLists.txt
-  -> ax615_aov_device_stubs
+  -> ax615_aov_app_core
+  -> Depend/prebuilt/lib/libmedia.a
+  -> Depend/prebuilt/lib/libsys.a
+  -> Depend/**/*.a
   -> Kylin
 ```
 
-`app/` 子目录下不再保留独立 `CMakeLists.txt`。判断某个 `.cpp` 是否编进 `Kylin`，以根目录 `CMakeLists.txt` 的 `ax615_aov_device_stubs` 源文件列表为准。
+`app/` 子目录下不再保留独立 `CMakeLists.txt`。判断某个 app `.cpp` 是否编进 `Kylin`，以根目录 `CMakeLists.txt` 的 `ax615_aov_app_core` 源文件列表为准。`Kylin` 不再编译 `libsys/Src` 源码，libsys 只通过 `libsys/Include` 暴露接口，并通过 `Depend/prebuilt/lib/libsys.a` 链接实现。
+
+注意：`libsys/Include/device/i_device_control_service.hpp` 已新增 `SetSoundAlarm()` 和 `Reboot()` 设备控制接口，板端编译 `Kylin` 前需要重新编译并更新 `Depend/prebuilt/lib/libsys.a`。
 
 ## 阶段计划
 
@@ -48,7 +53,7 @@ code_v2/CMakeLists.txt
 | --- | --- | --- | --- |
 | A1 | `app/Build/build_ax615.sh` 支持交叉编译 `Kylin` | DONE | `sh build_ax615.sh` 生成 `app/Build/Kylin` |
 | A2 | `app/Build/build_ax615.sh` 支持 `clean/distclean` | DONE | `sh build_ax615.sh clean`、`distclean` 可执行 |
-| A3 | CMake 接入 Depend 头文件和预编译库链接开关 | DONE | 交叉编译配置通过，`Kylin` 可链接 |
+| A3 | CMake 接入 Depend 头文件和预编译库 | DONE | `Kylin` 链接 `Depend/prebuilt/lib/libmedia.a`、`libsys.a` 和 Depend 下其他 `.a`，不编译 `libsys/Src` |
 | A3.1 | 删除 app 子目录下未生效的 `CMakeLists.txt` | DONE | `app/packet`、`app/storage` 不再保留独立 CMake，根 CMake 统一收口 |
 | A4 | 新增 `app/core/aov_app_runtime.hpp/.cpp` | DONE | `test_aov_app_runtime_contract` 通过 |
 | A5 | `app/entry/main.cpp` 改为启动 `AovAppRuntime` | DONE | host `Kylin_runtime_check.exe` 编译通过，交叉编译由 `app/Build/build_ax615.sh` 验证 |
@@ -64,7 +69,8 @@ code_v2/CMakeLists.txt
 | B3 | storage/cloud drain 合并判断 | DONE | `test_core_sleep_drain_contract`、`test_core_drain_merge_contract` 通过 |
 | B4 | core runtime facade 串接 config/cloud/storage 状态 | DONE | `test_core_runtime_facade_contract` 通过 |
 | B5 | app runtime 调用 core，并驱动模块生命周期 | DONE | `test_aov_app_runtime_contract` 通过，`main.cpp` 已接入 runtime |
-| B6 | 云端动作命令进入 core 执行队列 | TODO | 云端动作映射后能触发 core command |
+| B6 | 云端动作命令进入 core 执行队列 | DONE | 已新增 `CoreCommandQueue` 和 `CloudCoreCommandBridge`；云端 action 经 mapper 后进入 runtime 内部 core command FIFO，由 `AovAppRuntime::DrainCoreCommands()` 统一消费 |
+| B7 | core command 执行器 | DONE | `CoreCommandExecutor` 已支持抓图、恢复默认配置、一键报警触发本地录像/补光灯/声音报警、SD 格式化前置 close/flush 后调用 `libsys/SD::FormatSdCard`、重启调用 `libsys/device::Reboot`；runtime 可注入 libsys storage/device 服务后 drain 执行；`test_core_command_executor_contract` 和 `test_aov_app_runtime_contract` 覆盖 |
 
 ### 阶段 C：app/cloud 腾讯云接入
 
@@ -77,10 +83,10 @@ code_v2/CMakeLists.txt
 | C3 | cloud 状态上报 builder | DONE | `test_cloud_report_builder_contract` 通过 |
 | C4 | Tencent SDK adapter host-safe 骨架 | DONE | host 编译不需要真实 SDK 链接 |
 | C5 | TencentCloudService 实现 `ICloudService` | DONE | `test_tencent_cloud_service_contract` 通过 |
-| C6 | 腾讯 SDK `iv_sys/iv_dm/iv_avt` 真实初始化参数接入 | DOING | `iv_dm/iv_avt` 生命周期已进 `TencentSdkAdapter`；`iv_sys_init` 产品三元组和 OS 回调参数仍待板端配置 |
+| C6 | 腾讯 SDK `iv_sys/iv_dm/iv_avt` 真实初始化参数接入 | DONE | `TencentSdkAdapter` 已按 `TencentCloudInitConfig` 填充 `iv_sys_init_parm_s`、产品三元组、缓存/持久化路径、MQTT 参数、`os_impl`，并接入 `iv_dm/iv_avt` 生命周期；根 CMake 新增 `AOV_ENABLE_TENCENT_SDK` 开关，启用后编入 `os_linux_impl.c`；真实联网效果待板端联调 |
 | C7 | 腾讯物模型回调接入 property/action mapper | DONE | 已新增 `TencentGeneratedCallbackBridge` 和 C ABI dispatcher；已接入高优先级 `iv_usrcb_*` generated 回调：视频参数、云存开关、本地录像模式、智能检测、声光报警、重启、格式化、抓图、一键报警、恢复默认配置；回调只轻量入队，业务处理由 `TencentCloudService::DrainTencentGeneratedCallbacks()` drain 后继续分发 |
 | C8 | 直播推流：Packet -> TencentStreamAdapter -> `iv_av` | DONE | `test_tencent_live_stream_contract`、`test_cloud_packet_sink_contract` 通过；真实 SDK 调用由 `AOV_ENABLE_TENCENT_SDK` 控制 |
-| C9 | 云存推流：Packet -> TencentStreamAdapter -> `iv_cs` | TODO | 云存成功或明确失败后通知 core drain 完成 |
+| C9 | 云存推流：Packet -> TencentStreamAdapter -> `iv_cs` | DONE | 已新增 `TencentCloudStorage`，完成 host-safe 事件 start/finish、Packet 视频帧转 `iv_cs_push_stream`、成功或明确失败后更新 runtime drain；真实 `iv_cs` 上传效果待板端联调 |
 
 ### 阶段 D：app/storage 本地存储
 
@@ -91,10 +97,10 @@ code_v2/CMakeLists.txt
 | D1 | Packet 到 storage sink 基础链路 | DONE | `test_packet_storage_pipeline` 通过 |
 | D2 | StorageService drain 状态接入 core | DONE | `test_storage_service_drain_integration`、`test_storage_core_drain_mapper_contract` 通过 |
 | D3 | `DhfsWriterStub` 统计写入帧数/字节数 | DONE | storage pipeline 测试覆盖 |
-| D4 | 真实 PS/PES 封装接口设计和最小实现 | TODO | 输入 PacketFrame 输出可写入 PS/PES 数据 |
-| D5 | 真实 DHFS writer 接入 `libDHFS.a` | TODO | 板端可创建/写入/close/flush/fsync 文件 |
-| D6 | AOV 间隔帧时间戳策略 | BLOCKED | 需要确认 AOV 间隔录像文件时间轴和播放器兼容策略 |
-| D7 | SD 卡格式化/容量/状态与 libsys/SD 联动 | TODO | 云端 `FormatStorageMedium` 能触发并上报结果 |
+| D4 | 真实 PS/PES 封装接口设计和最小实现 | BLOCKED | 已输出 `docs/app_storage_AOV本地存储设计说明.md`，由 storage 同事按文档实现；输入 PacketFrame 输出可写入 PS/PES 数据 |
+| D5 | 真实 DHFS writer 接入 `libDHFS.a` | BLOCKED | 已记录 `libDHFS.a` 和 DHFS 头文件参考路径，后续板端实现创建/写入/close/flush/fsync 文件 |
+| D6 | AOV 间隔帧时间戳策略 | BLOCKED | 已在 storage 设计文档中说明 AOV 间隔录像与事件录像的时间轴差异，最终策略由 storage 实现时确认 |
+| D7 | SD 卡格式化/容量/状态与 libsys/SD 联动 | DONE | core command executor 已可调用 `libsys/SD::FormatSdCard`，格式化命令经 cloud action -> core queue -> executor 可执行；容量/文件索引上报随真实 storage 实现补齐 |
 
 ### 阶段 E：app/packet 媒体帧分发
 
@@ -105,7 +111,7 @@ code_v2/CMakeLists.txt
 | E1 | 定义 `PacketFrame`、订阅者、统计信息 | DONE | packet/storage 测试覆盖 |
 | E2 | 分发到 storage sink | DONE | storage sink 收到帧并更新 drain 状态 |
 | E3 | 分发到 cloud sink | DONE | `test_cloud_packet_sink_contract` 通过，runtime 已同时绑定 storage/cloud sink |
-| E4 | 接入 libmedia 裸码流回调 | TODO | libmedia 输出编码帧后进入 PacketService |
+| E4 | 接入 libmedia 裸码流回调 | DONE | `AovAppRuntime` 可注入 `libmedia::IMediaRuntime`，初始化时注册 ch0/ch1 视频帧回调并转发到 `PacketService`；`test_aov_app_runtime_contract` 覆盖 libmedia -> packet -> storage |
 | E5 | 评估是否替换为旧项目 `libPacket.a` 真实实现 | LATER | 当前 wrapper 满足架构验证，真实库迁移后再替换 |
 
 ### 阶段 F：app/alarm 告警策略
@@ -116,9 +122,9 @@ code_v2/CMakeLists.txt
 | --- | --- | --- | --- |
 | F1 | AlarmEvent 和联动字段定义 | DONE | `test_alarm_service_contract` 通过 |
 | F2 | 检测结果 + AlarmConfig 生成告警事件 | DONE | 合同测试覆盖基本联动 |
-| F3 | 告警防抖和布防时间 | TODO | 同一目标短时间内不重复触发 |
-| F4 | 声光报警执行接口接入 libsys/device | TODO | 一键报警/检测报警可触发补光灯和声音 |
-| F5 | 告警触发本地录像和云存 | TODO | 告警后 storage/cloud 均进入 running，并在完成后通知 core |
+| F3 | 告警防抖和布防时间 | DONE | `AlarmServiceStub` 按目标类型执行 `debounce_sec` 防抖，并按 `ArmSchedule` 判断布防时间；`test_alarm_service_contract` 通过 |
+| F4 | 声光报警执行接口接入 libsys/device | DONE | 一键报警已通过 core command executor 触发补光灯和声音报警；检测报警的声光执行复用同一 `libsys/device` 接口策略 |
+| F5 | 告警触发本地录像和云存 | DONE | `AovAppRuntime::OnDetectResult` 已串接 orchestrator/alarm/storage/cloud，检测告警后启动本地录像和云存；`test_aov_app_runtime_contract` 通过 |
 
 ### 阶段 G：app/config 配置闭环
 
@@ -130,9 +136,9 @@ code_v2/CMakeLists.txt
 | G2 | 配置校验规则 | DONE | 配置合同测试通过 |
 | G3 | Desired/Active/Pending 分离 | DONE | `test_config_service_core_policy_contract` 通过 |
 | G4 | 云端属性更新 DesiredConfig | DONE | `test_cloud_service_integration_contract` 通过 |
-| G5 | 配置持久化真实文件实现 | TODO | 重启后可恢复上次 Desired/Active 配置 |
-| G6 | 配置生效结果回报云端 | TODO | app/core MarkApplied 后 cloud report 能体现已生效 |
+| G5 | 配置持久化真实文件实现 | DONE | `ConfigServiceStub` 支持可选 key/value 持久化文件，覆盖工作模式、视频、云存、告警和声光关键配置；`test_config_phase1_contract` 通过 |
+| G6 | 配置生效结果回报云端 | DONE | `AovAppRuntime::ApplyPendingConfig` 已执行 apply、MarkApplied、Persist、ReportDeviceState；active config 可通过现有 cloud report builder 上报 |
 
 ## 下一步建议
 
-优先继续 `C6/C7`：补腾讯 `iv_sys/iv_dm/iv_avt_init` 初始化参数和物模型回调桥接，让直播开始/停止能由腾讯 SDK 回调驱动。
+除 `app/storage` 真实 PS/PES + DHFS 写盘和板端联调外，app 侧主业务骨架已收口。下一步切到板端集成验证：`Kylin` 链接最新 `libmedia.a/libsys.a`，验证 libmedia 裸码流进入 packet、腾讯云真实初始化、检测告警触发录像/云存、云端 action 进入 core 后被执行，以及休眠前 storage/cloud drain。

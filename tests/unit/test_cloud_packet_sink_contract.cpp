@@ -77,6 +77,26 @@ int main() {
         return Fail("cloud packet sink did not forward frame to live stream");
     }
 
+    cloud::tencent::TencentCloudStorage cloud_storage;
+    cloud::tencent::TencentCloudStorageSession cloud_storage_session;
+    cloud_storage_session.event_id = 12;
+    if (cloud_storage.StartEvent(cloud_storage_session) !=
+        cloud::tencent::TencentCloudStatusCode::Ok) {
+        return Fail("cloud storage start failed");
+    }
+
+    cloud::CloudPacketSink storage_sink(nullptr, &cloud_storage);
+    if (!cloud::BindCloudToPacket(router, storage_sink).ok()) {
+        return Fail("bind cloud storage sink failed");
+    }
+    if (!router.OnMediaFrame(frame).ok()) {
+        return Fail("publish frame to cloud storage sink failed");
+    }
+    if (cloud_storage.GetStats().sent_video_frames != 1 ||
+        cloud_storage.GetStats().sent_video_bytes != sizeof(payload)) {
+        return Fail("cloud packet sink did not forward frame to cloud storage");
+    }
+
     std::cout << "cloud packet sink contract passed\n";
     return 0;
 }

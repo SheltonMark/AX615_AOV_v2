@@ -83,6 +83,41 @@ int main() {
         return Fail("disabled detect rule must suppress alarm linkage");
     }
 
+    config.human.enabled = true;
+    config.human.debounce_sec = 10;
+    person.timestamp_ms = 60 * 1000;
+    event = alarm.EvaluateDetectResult(person, config, RuntimeWorkState::AwakeNormal, normal);
+    if (event.type != AlarmType::Person) {
+        return Fail("first alarm in debounce window must be allowed");
+    }
+    person.timestamp_ms = 65 * 1000;
+    event = alarm.EvaluateDetectResult(person, config, RuntimeWorkState::AwakeNormal, normal);
+    if (event.type != AlarmType::Unknown ||
+        event.need_cloud_report ||
+        event.need_record) {
+        return Fail("same alarm target within debounce window must be suppressed");
+    }
+    person.timestamp_ms = 71 * 1000;
+    event = alarm.EvaluateDetectResult(person, config, RuntimeWorkState::AwakeNormal, normal);
+    if (event.type != AlarmType::Person) {
+        return Fail("same alarm target after debounce window must be allowed again");
+    }
+
+    config.human.schedule.daily_ranges[0].clear();
+    config.human.schedule.daily_ranges[0].push_back({60, 120});
+    person.timestamp_ms = 30 * 60 * 1000;
+    event = alarm.EvaluateDetectResult(person, config, RuntimeWorkState::AwakeNormal, normal);
+    if (event.type != AlarmType::Unknown ||
+        event.need_cloud_report ||
+        event.need_record) {
+        return Fail("alarm outside arm schedule must be suppressed");
+    }
+    person.timestamp_ms = 90 * 60 * 1000;
+    event = alarm.EvaluateDetectResult(person, config, RuntimeWorkState::AwakeNormal, normal);
+    if (event.type != AlarmType::Person) {
+        return Fail("alarm inside arm schedule must be allowed");
+    }
+
     std::cout << "alarm service contract passed\n";
     return 0;
 }

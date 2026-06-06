@@ -99,13 +99,14 @@ static void os_linux_print(const char *fmt, va_list ap)
     fflush(stdout);
 }
 
-static uint32_t os_linux_gettime_ms(void)
+static uint64_t os_linux_gettime_ms(void)
 {
     struct timeval time_val = {0};
-    uint32_t time_ms;
+    uint64_t time_ms;
 
     gettimeofday(&time_val, NULL);
-    time_ms = time_val.tv_sec * 1000 + time_val.tv_usec / 1000;
+    time_ms = (uint64_t)time_val.tv_sec * 1000ULL +
+              (uint64_t)time_val.tv_usec / 1000ULL;
 
     return time_ms;
 }

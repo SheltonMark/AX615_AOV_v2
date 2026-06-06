@@ -6,6 +6,12 @@ CloudPacketSink::CloudPacketSink(tencent::TencentLiveStream* live_stream)
     : live_stream_(live_stream) {
 }
 
+CloudPacketSink::CloudPacketSink(tencent::TencentLiveStream* live_stream,
+                                 tencent::TencentCloudStorage* cloud_storage)
+    : live_stream_(live_stream),
+      cloud_storage_(cloud_storage) {
+}
+
 CloudPacketSinkResult CloudPacketSink::OnPacketFrame(
     const aov::app::packet::PacketFrame& frame) {
     ++stats_.received_frames;
@@ -21,6 +27,13 @@ CloudPacketSinkResult CloudPacketSink::OnPacketFrame(
 
     if (live_stream_) {
         const auto send_result = live_stream_->SendVideoPack(stats_.last_video_pack);
+        if (!send_result.ok()) {
+            ++stats_.dropped_frames;
+            return CloudPacketSinkResult::Error(send_result.message);
+        }
+    }
+    if (cloud_storage_) {
+        const auto send_result = cloud_storage_->SendVideoPack(stats_.last_video_pack);
         if (!send_result.ok()) {
             ++stats_.dropped_frames;
             return CloudPacketSinkResult::Error(send_result.message);

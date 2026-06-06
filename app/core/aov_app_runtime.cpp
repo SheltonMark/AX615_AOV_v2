@@ -1,5 +1,9 @@
 #include "app/core/aov_app_runtime.hpp"
 
+#include <string>
+
+#include "libmedia/Include/video/i_video_stream_service.hpp"
+
 namespace aov::app::core {
 
 AovAppRuntime::AovAppRuntime(config::ConfigServiceStub& config,
@@ -14,7 +18,26 @@ AovAppRuntime::AovAppRuntime(config::ConfigServiceStub& config,
       alarm_(alarm),
       packet_(packet),
       storage_(storage),
-      router_(packet) {
+      router_(packet),
+      cloud_command_bridge_(command_queue_) {
+}
+
+AovAppRuntime::AovAppRuntime(config::ConfigServiceStub& config,
+                             IAovOrchestrator& orchestrator,
+                             ICloudService& cloud,
+                             AlarmServiceStub& alarm,
+                             packet::IPacketService& packet,
+                             storage::IStorageService& storage,
+                             aov::media::IMediaRuntime& media_runtime)
+    : config_(config),
+      orchestrator_(orchestrator),
+      cloud_(cloud),
+      alarm_(alarm),
+      packet_(packet),
+      storage_(storage),
+      media_runtime_(&media_runtime),
+      router_(packet),
+      cloud_command_bridge_(command_queue_) {
 }
 
 AovStatusCode AovAppRuntime::Init() {
@@ -55,6 +78,13 @@ AovStatusCode AovAppRuntime::Init() {
         storage_.Deinit();
         packet_.Deinit();
         return AovStatusCode::InvalidState;
+    }
+
+    status = BindMediaToPacket();
+    if (status != AovStatusCode::Ok) {
+        storage_.Deinit();
+        packet_.Deinit();
+        return status;
     }
 
     (void)alarm_;
@@ -109,6 +139,154 @@ AovStatusCode AovAppRuntime::Stop() {
     return AovStatusCode::Ok;
 }
 
+AovStatusCode AovAppRuntime::OnDetectResult(const DetectResultSummary& result) {
+    if (!status_.initialized) {
+        return AovStatusCode::InvalidState;
+    }
+
+    AovStatusCode status = orchestrator_.OnDetectResult(result);
+    if (status != AovStatusCode::Ok) {
+        return status;
+    }
+
+    const AlarmEvent event = alarm_.EvaluateDetectResult(result,
+                                                         config_.GetActiveConfig().alarm,
+                                                         orchestrator_.GetRuntimeWorkState(),
+                                                         orchestrator_.GetRuntimeContext().battery);
+    if (event.type == AlarmType::Unknown) {
+        return AovStatusCode::Ok;
+    }
+
+    if (event.need_record) {
+        status = ToAovStatus(storage_.StartRecord());
+        if (status != AovStatusCode::Ok) {
+            return status;
+        }
+    }
+
+    if (event.need_cloud_report) {
+        status = cloud_.ReportAlarm(event);
+        if (status != AovStatusCode::Ok) {
+            return status;
+        }
+    }
+
+    if (event.need_cloud_report || event.need_record) {
+        status = cloud_.StartCloudStorage("alarm-" + std::to_string(event.timestamp_ms));
+        if (status != AovStatusCode::Ok) {
+            return status;
+        }
+    }
+
+    return AovStatusCode::Ok;
+}
+
+AovStatusCode AovAppRuntime::ApplyPendingConfig() {
+    if (!status_.initialized) {
+        return AovStatusCode::InvalidState;
+    }
+    if (media_runtime_ == nullptr) {
+        return AovStatusCode::InvalidState;
+    }
+
+    CoreApplyCoordinator coordinator(*media_runtime_, storage_);
+    const CoreApplyResult apply_result = coordinator.ApplyDeviceConfig(config_.GetDesiredConfig());
+    if (!apply_result.ok()) {
+        return AovStatusCode::InternalError;
+    }
+
+    AovStatusCode status = ToAovStatus(config_.MarkApplied());
+    if (status != AovStatusCode::Ok) {
+        return status;
+    }
+    status = ToAovStatus(config_.Persist());
+    if (status != AovStatusCode::Ok) {
+        return status;
+    }
+
+    return cloud_.ReportDeviceState();
+}
+
+cloud::CloudActionMapResult AovAppRuntime::SubmitCloudAction(
+    const cloud::CloudActionRequest& request) {
+    return cloud_command_bridge_.SubmitCloudAction(request);
+}
+
+CoreCommandQueueResult AovAppRuntime::PopCoreCommand(CoreCommand& out) {
+    return command_queue_.Pop(out);
+}
+
+std::size_t AovAppRuntime::GetPendingCoreCommandCount() const {
+    return command_queue_.PendingCount();
+}
+
+CoreCommandExecResult AovAppRuntime::ExecuteCoreCommand(
+    const CoreCommand& command,
+    aov::sys::IStorageService* sys_storage_service,
+    aov::sys::IDeviceControlService* device_control_service) {
+    if (!status_.initialized) {
+        return CoreCommandExecResult::Error(CoreCommandExecStatusCode::Failed,
+                                            "app.core.runtime",
+                                            "runtime is not initialized");
+    }
+    if (media_runtime_ == nullptr) {
+        return CoreCommandExecResult::Error(CoreCommandExecStatusCode::Unsupported,
+                                            "libmedia.runtime",
+                                            "core command execution needs media runtime");
+    }
+
+    if (sys_storage_service != nullptr && device_control_service != nullptr) {
+        CoreCommandExecutor executor(*media_runtime_,
+                                     config_,
+                                     storage_,
+                                     *sys_storage_service,
+                                     *device_control_service);
+        return executor.Execute(command);
+    }
+    if (sys_storage_service != nullptr) {
+        CoreCommandExecutor executor(*media_runtime_,
+                                     config_,
+                                     storage_,
+                                     *sys_storage_service);
+        return executor.Execute(command);
+    }
+
+    CoreCommandExecutor executor(*media_runtime_, config_, storage_);
+    return executor.Execute(command);
+}
+
+CoreCommandExecResult AovAppRuntime::DrainCoreCommands(
+    const std::size_t max_count,
+    aov::sys::IStorageService* sys_storage_service,
+    aov::sys::IDeviceControlService* device_control_service) {
+    if (max_count == 0) {
+        return CoreCommandExecResult::Ok();
+    }
+
+    std::size_t executed = 0;
+    CoreCommand command;
+    while (executed < max_count) {
+        const auto pop_result = command_queue_.Pop(command);
+        if (pop_result.code == CoreCommandQueueStatusCode::Empty) {
+            return CoreCommandExecResult::Ok();
+        }
+        if (!pop_result.ok()) {
+            return CoreCommandExecResult::Error(CoreCommandExecStatusCode::Failed,
+                                                "app.core.command_queue",
+                                                pop_result.message);
+        }
+
+        const auto exec_result = ExecuteCoreCommand(command,
+                                                    sys_storage_service,
+                                                    device_control_service);
+        if (!exec_result.ok()) {
+            return exec_result;
+        }
+        ++executed;
+    }
+    return CoreCommandExecResult::Ok();
+}
+
 AovAppRuntimeStatus AovAppRuntime::GetStatus() const {
     return status_;
 }
@@ -150,6 +328,49 @@ AovStatusCode AovAppRuntime::ToAovStatus(const storage::StorageResult& result) {
         return AovStatusCode::Busy;
     }
     return AovStatusCode::InternalError;
+}
+
+AovStatusCode AovAppRuntime::ToAovStatus(const aov::media::MediaStatusCode status) {
+    if (status == aov::media::MediaStatusCode::Ok) {
+        return AovStatusCode::Ok;
+    }
+    if (status == aov::media::MediaStatusCode::InvalidArgument) {
+        return AovStatusCode::InvalidArgument;
+    }
+    if (status == aov::media::MediaStatusCode::InvalidState) {
+        return AovStatusCode::InvalidState;
+    }
+    if (status == aov::media::MediaStatusCode::Busy) {
+        return AovStatusCode::Busy;
+    }
+    if (status == aov::media::MediaStatusCode::NotFound) {
+        return AovStatusCode::NotFound;
+    }
+    return AovStatusCode::InternalError;
+}
+
+AovStatusCode AovAppRuntime::BindMediaToPacket() {
+    if (media_runtime_ == nullptr) {
+        return AovStatusCode::Ok;
+    }
+
+    aov::media::IVideoStreamService* video = media_runtime_->GetVideoStreamService();
+    if (video == nullptr) {
+        return AovStatusCode::InvalidState;
+    }
+
+    for (const int chn_id : {0, 1}) {
+        const auto status = video->RegisterStreamCallback(
+            chn_id,
+            [this](int, const aov::media::StreamFrame& frame) {
+                (void)router_.OnMediaFrame(frame);
+            });
+        const AovStatusCode mapped = ToAovStatus(status);
+        if (mapped != AovStatusCode::Ok) {
+            return mapped;
+        }
+    }
+    return AovStatusCode::Ok;
 }
 
 } // namespace aov::app::core

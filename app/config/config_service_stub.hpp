@@ -5,11 +5,14 @@
 #include "config_validation.hpp"
 #include "device_config.hpp"
 
+#include <string>
+
 namespace aov::app::config {
 
 class ConfigServiceStub final {
 public:
     ConfigServiceStub();
+    explicit ConfigServiceStub(std::string persist_path);
 
     ConfigResult LoadFactoryConfig();
     ConfigResult LoadPersistedConfig();
@@ -28,6 +31,7 @@ private:
     void RebuildPendingChange();
 
 private:
+    std::string persist_path_;
     DeviceConfig desired_ {};
     DeviceConfig active_ {};
     PendingConfigChange pending_ {};

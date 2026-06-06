@@ -154,6 +154,17 @@ AovStatusCode TencentCloudService::StartCloudStorage(const std::string& storage_
         return AovStatusCode::InvalidArgument;
     }
 
+    TencentCloudStorageSession session;
+    session.event_id = 1;
+    session.channel = CS_SINGLE_CH;
+    session.info = storage_id;
+    const auto start_status = cloud_storage_.StartEvent(session);
+    if (start_status != TencentCloudStatusCode::Ok) {
+        return ToAovStatus(TencentCloudResult::Error(start_status,
+                                                     0,
+                                                     "cloud storage start event failed"));
+    }
+
     runtime_status_.cloud_storage_running = true;
     runtime_status_.cloud_storage_result = CloudStorageResult::None;
     runtime_status_.active_cloud_storage_id = storage_id;
@@ -165,9 +176,18 @@ AovStatusCode TencentCloudService::FinishCloudStorage(const CloudStorageResult r
         return AovStatusCode::InvalidArgument;
     }
 
+    const auto finish_result = cloud_storage_.FinishEvent(result);
+    if (!finish_result.ok()) {
+        return ToAovStatus(finish_result);
+    }
+
     runtime_status_.cloud_storage_running = false;
     runtime_status_.cloud_storage_result = result;
     return AovStatusCode::Ok;
+}
+
+TencentCloudStorageStats TencentCloudService::GetCloudStorageStats() const {
+    return cloud_storage_.GetStats();
 }
 
 aov::app::cloud::CloudConfigResult<aov::app::cloud::CloudPropertyUpdate>

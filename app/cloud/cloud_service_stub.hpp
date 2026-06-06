@@ -39,8 +39,8 @@ public:
         const BatteryStatus& battery,
         const config::StorageRuntimeStatus& storage) const;
     core::CoreCommand GetLastCommand() const;
-    AovStatusCode StartCloudStorage(const std::string& storage_id);
-    AovStatusCode FinishCloudStorage(cloud::CloudStorageResult result);
+    AovStatusCode StartCloudStorage(const std::string& storage_id) override;
+    AovStatusCode FinishCloudStorage(cloud::CloudStorageResult result) override;
 
 private:
     bool started_ {false};

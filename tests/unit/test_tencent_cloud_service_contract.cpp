@@ -62,10 +62,18 @@ int main() {
         cloud.GetRuntimeStatus().active_cloud_storage_id != "alarm-1") {
         return Fail("TencentCloudService cloud storage start must update runtime status");
     }
+    if (!cloud.GetCloudStorageStats().active ||
+        cloud.GetCloudStorageStats().active_event_id <= 0) {
+        return Fail("TencentCloudService cloud storage start must activate storage stream");
+    }
     if (cloud.FinishCloudStorage(CloudStorageResult::ExplicitFailure) != AovStatusCode::Ok ||
         cloud.GetRuntimeStatus().cloud_storage_running ||
         cloud.GetRuntimeStatus().cloud_storage_result != CloudStorageResult::ExplicitFailure) {
         return Fail("TencentCloudService cloud storage finish must update drain status");
+    }
+    if (cloud.GetCloudStorageStats().active ||
+        cloud.GetCloudStorageStats().last_result != CloudStorageResult::ExplicitFailure) {
+        return Fail("TencentCloudService cloud storage finish must close storage stream");
     }
 
     if (cloud.Stop() != AovStatusCode::Ok ||

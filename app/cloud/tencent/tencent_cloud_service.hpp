@@ -3,6 +3,7 @@
 #include <string>
 
 #include "app/cloud/i_cloud_service.hpp"
+#include "app/cloud/tencent/tencent_cloud_storage.hpp"
 #include "app/cloud/tencent/tencent_cloud_types.hpp"
 #include "app/cloud/tencent/tencent_generated_callback_bridge.hpp"
 #include "app/cloud/tencent/tencent_sdk_adapter.hpp"
@@ -29,8 +30,9 @@ public:
     AovStatusCode OnModemHeartbeatState() override;
     CloudRuntimeStatus GetRuntimeStatus() const override;
 
-    AovStatusCode StartCloudStorage(const std::string& storage_id);
-    AovStatusCode FinishCloudStorage(CloudStorageResult result);
+    AovStatusCode StartCloudStorage(const std::string& storage_id) override;
+    AovStatusCode FinishCloudStorage(CloudStorageResult result) override;
+    TencentCloudStorageStats GetCloudStorageStats() const;
     aov::app::cloud::CloudConfigResult<aov::app::cloud::CloudPropertyUpdate>
     OnTencentPropertySet(const std::string& property_id,
                          const std::string& value,
@@ -48,6 +50,7 @@ private:
 
     TencentCloudInitConfig config_ {};
     TencentSdkAdapter sdk_ {};
+    TencentCloudStorage cloud_storage_ {};
     TencentGeneratedCallbackBridge generated_callback_bridge_ {};
     CloudRuntimeStatus runtime_status_ {};
     PreviewRequest last_preview_request_ {};

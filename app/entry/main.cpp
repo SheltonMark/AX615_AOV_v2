@@ -25,13 +25,6 @@
 
 // ── libmedia layer ──
 
-// ── libsys layer ──
-#include "libsys/Src/device/device_control_service_stub.hpp"
-#include "libsys/Src/modem/modem_service_stub.hpp"
-#include "libsys/Src/network/network_service_stub.hpp"
-#include "libsys/Src/power/power_service_stub.hpp"
-#include "libsys/Src/storage/storage_service_stub.hpp"
-
 static std::atomic<bool> g_running{true};
 
 static void signal_handler(int /*sig*/) {
@@ -53,18 +46,6 @@ int main(int argc, char* argv[]) {
     aov::app::packet::PacketServiceStub packet;
     aov::app::storage::StorageServiceStub app_storage(
         std::make_unique<aov::app::storage::dhfs::DhfsWriterStub>());
-    aov::sys::DeviceControlServiceStub device_ctrl;
-    aov::sys::ModemServiceStub         modem;
-    aov::sys::NetworkServiceStub       network;
-    aov::sys::PowerServiceStub         power;
-    aov::sys::StorageServiceStub       storage;
-
-    (void)device_ctrl;
-    (void)modem;
-    (void)network;
-    (void)power;
-    (void)storage;
-
     aov::app::core::AovAppRuntime runtime(config,
                                           orchestrator,
                                           cloud,

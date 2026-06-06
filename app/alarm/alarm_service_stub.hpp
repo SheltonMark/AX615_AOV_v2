@@ -2,6 +2,8 @@
 
 #include "app/alarm/i_alarm_service.hpp"
 
+#include <array>
+
 namespace aov::app {
 
 class AlarmServiceStub final : public IAlarmService {
@@ -15,6 +17,9 @@ public:
                                     RuntimeWorkState state,
                                     const BatteryStatus& status) override;
     bool IsAlarmAllowed(RuntimeWorkState state, const BatteryStatus& status) const override;
+
+private:
+    std::array<std::uint64_t, 5> last_alarm_ts_ms_ {};
 };
 
 } // namespace aov::app

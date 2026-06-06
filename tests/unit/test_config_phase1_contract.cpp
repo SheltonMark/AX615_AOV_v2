@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdio>
 
 #include "../../app/config/config_diff.hpp"
 #include "../../app/config/config_service_stub.hpp"
@@ -99,6 +100,33 @@ int main() {
     if (service.GetActiveConfig().work_mode.mode != ConfiguredWorkMode::UltraLongStandby) {
         return Fail("active config must update after mark applied");
     }
+
+    const char* persist_path = "build_host_manual/config_persist_contract.txt";
+    std::remove(persist_path);
+    ConfigServiceStub persist_service(persist_path);
+    if (!persist_service.LoadFactoryConfig().ok()) {
+        return Fail("persist service must load factory config");
+    }
+    DeviceConfig persisted = persist_service.GetDesiredConfig();
+    persisted.work_mode.mode = ConfiguredWorkMode::SmartNoSleep;
+    persisted.work_mode.record_interval_sec = 3;
+    persisted.media.main_stream.codec = VideoEncodeType::H264;
+    persisted.record.cloud_storage.enabled = true;
+    if (!persist_service.UpdateDesiredConfig(persisted).ok() ||
+        !persist_service.MarkApplied().ok() ||
+        !persist_service.Persist().ok()) {
+        return Fail("config service must persist active config");
+    }
+
+    ConfigServiceStub loaded_service(persist_path);
+    if (!loaded_service.LoadPersistedConfig().ok() ||
+        loaded_service.GetActiveConfig().work_mode.mode != ConfiguredWorkMode::SmartNoSleep ||
+        loaded_service.GetActiveConfig().work_mode.record_interval_sec != 3 ||
+        loaded_service.GetActiveConfig().media.main_stream.codec != VideoEncodeType::H264 ||
+        !loaded_service.GetActiveConfig().record.cloud_storage.enabled) {
+        return Fail("config service must restore persisted config after restart");
+    }
+    std::remove(persist_path);
 
     std::cout << "config phase1 contract passed\n";
     return 0;

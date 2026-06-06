@@ -6,17 +6,24 @@ APP_DIR=$(CDPATH= cd -- "${SCRIPT_DIR}/.." && pwd)
 CODE_ROOT=$(CDPATH= cd -- "${APP_DIR}/.." && pwd)
 BUILD_DIR="${SCRIPT_DIR}/cmake_build_ax615"
 ACTION=${1:-build}
+AOV_ENABLE_TENCENT_SDK=${AOV_ENABLE_TENCENT_SDK:-OFF}
 
 JOBS=${JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}
 
 case "${ACTION}" in
-    build|clean|distclean)
+    build|tencent|clean|distclean)
         ;;
     *)
-        echo "Usage: $0 [build|clean|distclean]" >&2
+        echo "Usage: $0 [build|tencent|clean|distclean]" >&2
+        echo "  build:   build Kylin without real Tencent SDK calls" >&2
+        echo "  tencent: build Kylin with AOV_ENABLE_TENCENT_SDK=ON" >&2
         exit 2
         ;;
 esac
+
+if [ "${ACTION}" = "tencent" ]; then
+    AOV_ENABLE_TENCENT_SDK=ON
+fi
 
 if [ "${ACTION}" = "distclean" ]; then
     rm -rf "${BUILD_DIR}" "${SCRIPT_DIR}/Kylin"
@@ -41,8 +48,10 @@ cmake "${CODE_ROOT}" \
     -DBUILD_LIBMEDIA=OFF \
     -DBUILD_APP_STUBS=ON \
     -DAOV_LINK_PREBUILT_DEPS=ON \
+    -DAOV_ENABLE_TENCENT_SDK="${AOV_ENABLE_TENCENT_SDK}" \
     -DCMAKE_BUILD_TYPE=Release
 
+echo "AOV_ENABLE_TENCENT_SDK=${AOV_ENABLE_TENCENT_SDK}"
 make Kylin -j"${JOBS}"
 
 cp -f "${BUILD_DIR}/Kylin" "${SCRIPT_DIR}/Kylin"

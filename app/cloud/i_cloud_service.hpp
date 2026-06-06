@@ -19,6 +19,8 @@ public:
     virtual AovStatusCode ReportBatteryStatus(const BatteryStatus& status) = 0;
     virtual AovStatusCode ReportAlarm(const AlarmEvent& event) = 0;
     virtual AovStatusCode ReportPreviewState(const std::string& session_id) = 0;
+    virtual AovStatusCode StartCloudStorage(const std::string& storage_id) = 0;
+    virtual AovStatusCode FinishCloudStorage(cloud::CloudStorageResult result) = 0;
 
     virtual AovStatusCode OnCloudPreviewRequest(const PreviewRequest& request) = 0;
     virtual AovStatusCode OnCloudConfigUpdate() = 0;

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 
+#include "app/cloud/tencent/tencent_cloud_storage.hpp"
 #include "app/cloud/tencent/tencent_live_stream.hpp"
 #include "app/cloud/tencent/tencent_stream_adapter.hpp"
 #include "app/packet/media_packet_router.hpp"
@@ -40,6 +41,8 @@ class CloudPacketSink final {
 public:
     CloudPacketSink() = default;
     explicit CloudPacketSink(tencent::TencentLiveStream* live_stream);
+    CloudPacketSink(tencent::TencentLiveStream* live_stream,
+                    tencent::TencentCloudStorage* cloud_storage);
 
     CloudPacketSinkResult OnPacketFrame(const aov::app::packet::PacketFrame& frame);
     CloudPacketSinkStats GetStats() const;
@@ -48,6 +51,7 @@ public:
 private:
     tencent::TencentStreamAdapter stream_adapter_ {};
     tencent::TencentLiveStream* live_stream_ {nullptr};
+    tencent::TencentCloudStorage* cloud_storage_ {nullptr};
     CloudPacketSinkStats stats_ {};
 };
 
