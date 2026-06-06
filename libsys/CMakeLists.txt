@@ -9,13 +9,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(LIBSYS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(LIBSYS_PUBLIC_HEADERS
-    include/common/sys_types.hpp
-    include/runtime/i_sys_runtime.hpp
-    include/power/i_power_service.hpp
-    include/modem/i_modem_service.hpp
-    include/device/i_device_control_service.hpp
-    include/network/i_network_service.hpp
-    include/storage/i_storage_service.hpp
+    Include/common/sys_types.hpp
+    Include/runtime/i_sys_runtime.hpp
+    Include/power/i_power_service.hpp
+    Include/modem/i_modem_service.hpp
+    Include/device/i_device_control_service.hpp
+    Include/network/i_network_service.hpp
+    Include/storage/i_storage_service.hpp
 )
 
 set(LIBSYS_SOURCES
@@ -33,7 +33,7 @@ add_library(sys::sys ALIAS sys)
 
 target_include_directories(sys
     PUBLIC
-        ${LIBSYS_ROOT}/include
+        ${LIBSYS_ROOT}/Include
         ${LIBSYS_ROOT}/..
     PRIVATE
         ${LIBSYS_ROOT}/Src

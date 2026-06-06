@@ -67,7 +67,7 @@ target_include_directories(ax615_aov_device_stubs
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/libmedia/Include
-        ${CMAKE_CURRENT_SOURCE_DIR}/libsys/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/libsys/Include
         ${CMAKE_CURRENT_SOURCE_DIR}/app/cloud/TencentCloud_SDK/include
         ${AOV_AX_SDK_DIR}/include
         ${AOV_THIRD_PARTY_DIR}/include
