@@ -3,14 +3,14 @@
 #include <memory>
 
 #include "../packet/media_packet_router.hpp"
-#include "../packet/packet_service_stub.hpp"
+#include "../packet/packet_service.hpp"
 #include "dhfs/dhfs_writer_stub.hpp"
 #include "storage_service_stub.hpp"
 
 namespace aov::app::storage {
 
 struct PacketStoragePipeline {
-    aov::app::packet::PacketServiceStub packet_service;
+    aov::app::packet::PacketService packet_service;
     aov::app::packet::MediaPacketRouter router;
     StorageServiceStub storage_service;
 

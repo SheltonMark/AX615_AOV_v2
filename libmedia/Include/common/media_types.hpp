@@ -76,9 +76,15 @@ struct CmPoolConfig {
 
     static CmPoolConfig DefaultAx615() {
         CmPoolConfig cfg;
-        cfg.pools.push_back({3840ULL * 2160 * 3 / 2, 3, 512, PoolCacheMode::NonCache});
-        cfg.pools.push_back({1920ULL * 1080 * 3 / 2, 3, 512, PoolCacheMode::NonCache});
-        cfg.pools.push_back({752ULL * 576 * 3 / 2, 4, 512, PoolCacheMode::NonCache});
+        // CRITICAL: Match QSDemo pool config EXACTLY for OS04D10
+        // Pool[0]: 2560x1440 YUV420 (main stream from VIN)
+        cfg.pools.push_back({2560ULL * 1440 * 3 / 2, 2, 512, PoolCacheMode::NonCache});  // 3686400 bytes
+        // Pool[1]: 2560x128 auxiliary buffer
+        cfg.pools.push_back({2560ULL * 128 * 3 / 2, 2, 512, PoolCacheMode::NonCache});   // 327680 bytes
+        // Pool[2]: 720x576 sub-stream
+        cfg.pools.push_back({720ULL * 576 * 3 / 2, 2, 512, PoolCacheMode::NonCache});    // 331776 bytes
+        // Pool[3]: 640x352 detection stream
+        cfg.pools.push_back({640ULL * 352 * 3 / 2, 2, 512, PoolCacheMode::NonCache});    // 337920 bytes
         return cfg;
     }
 };
@@ -97,6 +103,7 @@ struct SensorConfig {
     int dev_id = 0;
     Resolution resolution = {2688, 1520};
     int fps = 25;
+    int chn_frame_mode = 1;
     std::string sensor_lib_path;
     std::string iq_bin_path = "/etc/iqfiles";
 };

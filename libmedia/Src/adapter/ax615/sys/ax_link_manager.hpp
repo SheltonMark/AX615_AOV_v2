@@ -14,12 +14,12 @@ namespace aov::media::ax615 {
 
 /// 模块标识（映射到 AX_MOD_ID_E，不暴露 SDK 类型）
 enum class AxModId : int {
-    VIN  = 6,
-    ISP  = 7,
-    IVPS = 8,
-    VENC = 9,
-    JENC = 10,
-    NPU  = 15,
+    ISP  = 0x01,
+    NPU  = 0x06,
+    VENC = 0x07,
+    JENC = 0x09,
+    IVPS = 0x0d,
+    VIN  = 0x11,
 };
 
 struct AxModPort {

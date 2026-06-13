@@ -1,6 +1,7 @@
 #include "ax_sys_adapter.hpp"
 
 #include "ax_buffer_tool.h"
+#include "ax_vin_api.h"
 #include <cstdio>
 #include <cstring>
 
@@ -15,11 +16,18 @@ MediaStatusCode AxSysAdapter::Init() {
         return MediaStatusCode::Ok;
     }
 
+    std::fprintf(stderr, "[AxSysAdapter][v20260611-fix1] Init() called\n");
+
     AX_S32 ret = AX_SYS_Init();
     if (ret != AX_SUCCESS) {
         std::fprintf(stderr, "[AxSysAdapter] AX_SYS_Init failed: 0x%x\n", ret);
         return MediaStatusCode::InternalError;
     }
+    std::fprintf(stderr, "[AxSysAdapter][v20260611-fix1] AX_SYS_Init OK\n");
+
+    // Release any previous pool config immediately after SYS_Init (like QSDemo does)
+    ret = AX_POOL_Exit();
+    std::fprintf(stderr, "[AxSysAdapter][v20260611-fix1] AX_POOL_Exit after SYS_Init, ret=0x%x\n", ret);
 
     initialized_ = true;
     return MediaStatusCode::Ok;
@@ -30,18 +38,13 @@ MediaStatusCode AxSysAdapter::ConfigCmPool(const std::vector<PoolBlockCfg>& pool
         return MediaStatusCode::InvalidState;
     }
 
-    AX_S32 ret = AX_POOL_Exit();
-    if (ret != AX_SUCCESS) {
-        std::fprintf(stderr, "[AxSysAdapter] AX_POOL_Exit warning: 0x%x\n", ret);
-    }
-
     std::memset(&pool_plan_, 0, sizeof(pool_plan_));
     MediaStatusCode status = CalcPool(pools, &pool_plan_);
     if (status != MediaStatusCode::Ok) {
         return status;
     }
 
-    ret = AX_POOL_SetConfig(&pool_plan_);
+    AX_S32 ret = AX_POOL_SetConfig(&pool_plan_);
     if (ret != AX_SUCCESS) {
         std::fprintf(stderr, "[AxSysAdapter] AX_POOL_SetConfig failed: 0x%x\n", ret);
         return MediaStatusCode::InternalError;
@@ -64,10 +67,7 @@ MediaStatusCode AxSysAdapter::ConfigCmPool(const CmPoolConfig& pools) {
         return MediaStatusCode::InvalidArgument;
     }
 
-    AX_S32 ret = AX_POOL_Exit();
-    if (ret != AX_SUCCESS) {
-        std::fprintf(stderr, "[AxSysAdapter] AX_POOL_Exit warning: 0x%x\n", ret);
-    }
+    std::fprintf(stderr, "[AxSysAdapter][v20260611-fix1] ConfigCmPool called, pool count=%zu\n", pools.pools.size());
 
     std::memset(&pool_plan_, 0, sizeof(pool_plan_));
     AX_U32 cfg_count = 0;
@@ -87,17 +87,55 @@ MediaStatusCode AxSysAdapter::ConfigCmPool(const CmPoolConfig& pools) {
         cfg_count = AddToPlan(&pool_plan_, cfg_count, cfg);
     }
 
-    ret = AX_POOL_SetConfig(&pool_plan_);
+    std::fprintf(stderr, "[AxSysAdapter][v20260611-fix1] Calling AX_POOL_SetConfig\n");
+    AX_S32 ret = AX_POOL_SetConfig(&pool_plan_);
     if (ret != AX_SUCCESS) {
         std::fprintf(stderr, "[AxSysAdapter] AX_POOL_SetConfig failed: 0x%x\n", ret);
         return MediaStatusCode::InternalError;
     }
+    std::fprintf(stderr, "[AxSysAdapter][v20260611-fix1] AX_POOL_SetConfig OK\n");
 
+    std::fprintf(stderr, "[AxSysAdapter][v20260611-fix1] Calling AX_POOL_Init\n");
     ret = AX_POOL_Init();
     if (ret != AX_SUCCESS) {
-        std::fprintf(stderr, "[AxSysAdapter] AX_POOL_Init failed: 0x%x\n", ret);
+        std::fprintf(stderr, "[AxSysAdapter][v20260611-fix1] AX_POOL_Init failed: 0x%x\n", ret);
         return MediaStatusCode::InternalError;
     }
+    std::fprintf(stderr, "[AxSysAdapter][v20260611-fix1] AX_POOL_Init OK\n");
+
+    return MediaStatusCode::Ok;
+}
+
+MediaStatusCode AxSysAdapter::ConfigVinPrivatePool(const std::vector<PoolBlockCfg>& pools) {
+    if (!initialized_) {
+        return MediaStatusCode::InvalidState;
+    }
+    if (pools.empty() || pools.size() > AX_MAX_COMM_POOLS) {
+        return MediaStatusCode::InvalidArgument;
+    }
+
+    std::fprintf(stderr, "[AxSysAdapter][v20260611-fix2] ConfigVinPrivatePool called, pool count=%zu\n", pools.size());
+
+    // CRITICAL: This is QSDemo's QS_COMMON_CAM_PrivPoolInit (qs_common_cam.c lines 86-109)
+    // VIN needs private RAW buffer pools configured via AX_VIN_SetPoolAttr BEFORE VIN operations
+    // Without this, AX_VIN_StartPipe fails with 0x80110180 because it cannot allocate internal buffers
+
+    AX_POOL_FLOORPLAN_T vin_pool_plan;
+    std::memset(&vin_pool_plan, 0, sizeof(vin_pool_plan));
+
+    MediaStatusCode status = CalcPool(pools, &vin_pool_plan);
+    if (status != MediaStatusCode::Ok) {
+        std::fprintf(stderr, "[AxSysAdapter][v20260611-fix2] CalcPool failed\n");
+        return status;
+    }
+
+    std::fprintf(stderr, "[AxSysAdapter][v20260611-fix2] Calling AX_VIN_SetPoolAttr\n");
+    AX_S32 ret = AX_VIN_SetPoolAttr(&vin_pool_plan);
+    if (ret != AX_SUCCESS) {
+        std::fprintf(stderr, "[AxSysAdapter] AX_VIN_SetPoolAttr failed: 0x%x\n", ret);
+        return MediaStatusCode::InternalError;
+    }
+    std::fprintf(stderr, "[AxSysAdapter][v20260611-fix2] AX_VIN_SetPoolAttr OK\n");
 
     return MediaStatusCode::Ok;
 }

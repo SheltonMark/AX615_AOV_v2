@@ -7,6 +7,9 @@
 #include "../video/video_stream_service.hpp"
 
 #include <utility>
+#include <cstring>
+#include <chrono>
+#include <thread>
 
 #if defined(LIBMEDIA_BUILD_AX615_ADAPTERS)
 #include "../adapter/ax615/audio/ax_audio_capture_adapter.hpp"
@@ -21,6 +24,13 @@
 #include "../adapter/ax615/sys/ax_sys_adapter.hpp"
 #include "../adapter/ax615/venc/ax_venc_adapter.hpp"
 #include "../adapter/ax615/vin/ax_vin_adapter.hpp"
+
+// 声明 Sensor 对象（来自 libsns_os04d10.a，C 符号）
+extern "C" {
+    #include "ax_ivps_api.h"
+    #include "ax_pool_type.h"
+    extern AX_SENSOR_REGISTER_FUNC_T gSnsos04d10Obj;
+}
 #endif
 
 namespace aov::media {
@@ -146,7 +156,38 @@ MediaPipelineManager::MediaPipelineManager(
         return audio_play_ ? audio_play_->Play(frame) : MediaStatusCode::InvalidState;
     });
     detect_service_->SetRunOnceHandler([this](DetectResultSummary& result) {
-        return detect_ ? detect_->RunOnce(result) : MediaStatusCode::Ok;
+        result = {};
+        if (!detect_ || !detect_->IsOpen() || !ivps_ || !ivps_->IsRunning()) {
+            return MediaStatusCode::InvalidState;
+        }
+        
+        // Get frame from IVPS channel
+        AX_VIDEO_FRAME_T video_frame;
+        std::memset(&video_frame, 0, sizeof(video_frame));
+        
+        const int ivps_grp = detect_config_.ivps_grp_id;
+        const int ivps_chn = detect_config_.ivps_chn_id;
+        const int timeout_ms = 100;  // 100ms timeout
+        
+        AX_S32 ret = AX_IVPS_GetChnFrame(ivps_grp, ivps_chn, &video_frame, timeout_ms);
+        if (ret != AX_SUCCESS) {
+            // Timeout or no frame available, not an error
+            return MediaStatusCode::Ok;
+        }
+        
+        // Get physical address from pool
+        video_frame.u64VirAddr[0] = (AX_ULONG)AX_POOL_GetBlockVirAddr(video_frame.u32BlkId[0]);
+        video_frame.u64PhyAddr[0] = AX_POOL_Handle2PhysAddr(video_frame.u32BlkId[0]);
+        video_frame.u32FrameSize = video_frame.u32PicStride[0] * video_frame.u32Height * 3 / 2;
+        
+        // Send frame to SKEL
+        static uint64_t frame_id = 0;
+        MediaStatusCode status = detect_->SendFrame(ivps_chn, frame_id++, video_frame, 0);
+        
+        // Release frame back to IVPS
+        AX_IVPS_ReleaseChnFrame(ivps_grp, ivps_chn, &video_frame);
+        
+        return status;
     });
     osd_service_->SetApplyHandler([this](const OsdApplyConfig& config) {
         if (!config.enabled) {
@@ -205,7 +246,8 @@ MediaStatusCode MediaPipelineManager::Init(const MediaRuntimeInitConfig& config)
     if (status != MediaStatusCode::Ok) {
         return status;
     }
-    return ApplyImageConfig(config.image);
+    // Defer ApplyImageConfig to Start() - ISP IQ APIs require ISP to be started first
+    return MediaStatusCode::Ok;
 }
 
 MediaStatusCode MediaPipelineManager::Init(const SensorConfig& sensor, const CmPoolConfig& pool) {
@@ -352,6 +394,13 @@ MediaStatusCode MediaPipelineManager::Start() {
         StopAx615Adapters();
         SetLastError(ax_status, 0, "failed to start AX615 media adapters");
         return ax_status;
+    }
+    // Apply image config after ISP Start - IQ APIs require ISP to be running
+    const MediaStatusCode image_status = ApplyImageConfig(init_config_.image);
+    if (image_status != MediaStatusCode::Ok) {
+        StopAx615Adapters();
+        SetLastError(image_status, 0, "failed to apply image config");
+        return image_status;
     }
     const MediaStatusCode capture_status = StartCaptureChannels();
     if (capture_status != MediaStatusCode::Ok) {
@@ -585,29 +634,21 @@ MediaStatusCode MediaPipelineManager::StartAx615Adapters() {
         return MediaStatusCode::InvalidState;
     }
 
+    std::fprintf(stderr, "[Pipeline][v20260611] StartAx615Adapters begin\n");
+
     MediaStatusCode status = sys_->Init();
     if (status != MediaStatusCode::Ok) {
+        std::fprintf(stderr, "[Pipeline][v20260611] sys_->Init() failed\n");
         return status;
     }
     status = sys_->ConfigCmPool(pool_);
     if (status != MediaStatusCode::Ok) {
+        std::fprintf(stderr, "[Pipeline][v20260611] sys_->ConfigCmPool() failed\n");
         return status;
     }
 
-    ax615::VinOpenOptions vin_options;
-    vin_options.sensor_name = ax615_cfg_.sensor_name;
-    if (!vin_->Open(vin_options)) {
-        return MediaStatusCode::InternalError;
-    }
-
-    ax615::IspConfig isp_cfg;
-    isp_cfg.pipe_id = ax615_cfg_.pipe_id;
-    isp_cfg.dev_id = ax615_cfg_.dev_id;
-    isp_cfg.iq_bin_path = sensor_.iq_bin_path;
-    if (!isp_->Open(isp_cfg)) {
-        return MediaStatusCode::InternalError;
-    }
-
+    // CRITICAL: Initialize IVPS BEFORE VIN/ISP (matches QSDemo and SDK sample order)
+    std::fprintf(stderr, "[Pipeline][v20260611] Opening IVPS (before VIN/ISP)\n");
     ax615::IvpsGroupConfig ivps_cfg;
     ivps_cfg.grp_id = ax615_cfg_.ivps_grp_id;
     for (const auto& ch : ax615_cfg_.video_channels) {
@@ -621,9 +662,87 @@ MediaStatusCode MediaPipelineManager::StartAx615Adapters() {
         ivps_cfg.channels.push_back(ivps_ch);
     }
     if (!ivps_->Open(ivps_cfg)) {
+        std::fprintf(stderr, "[Pipeline][v20260611] ivps_->Open() failed\n");
         return MediaStatusCode::InternalError;
     }
+    std::fprintf(stderr, "[Pipeline][v20260611] IVPS Open OK\n");
 
+    // CRITICAL: Establish VIN→IVPS link BEFORE starting any modules (matches SDK sample order)
+    // SDK sample creates links immediately after SYS init, before IVPS/VIN start
+    std::fprintf(stderr, "[Pipeline][v20260611] ========== Establishing links (BEFORE module start) ==========\n");
+    for (const auto& link : link_plan_) {
+        ax615::AxModPort src{ax615::AxModId::VIN, link.src_dev, link.src_chn};
+        ax615::AxModPort dst{ax615::AxModId::IVPS, link.dst_dev, link.dst_chn};
+        if (link.src == "IVPS") {
+            src.mod = ax615::AxModId::IVPS;
+        }
+        if (link.dst == "VENC") {
+            dst.mod = ax615::AxModId::VENC;
+        } else if (link.dst == "JENC") {
+            dst.mod = ax615::AxModId::VENC;
+        }
+        std::fprintf(stderr, "[Pipeline][DEBUG] Linking %s[%d,%d] -> %s[%d,%d]\n",
+                    link.src.c_str(), link.src_dev, link.src_chn,
+                    link.dst.c_str(), link.dst_dev, link.dst_chn);
+        if (!link_->Link(src, dst)) {
+            std::fprintf(stderr, "[Pipeline][v20260611] link_->Link() failed\n");
+            return MediaStatusCode::InternalError;
+        }
+    }
+    std::fprintf(stderr, "[Pipeline][v20260611] ========== All links established ==========\n");
+
+    std::fprintf(stderr, "[Pipeline][v20260611] Opening VIN: %s\n", ax615_cfg_.sensor_name.c_str());
+    ax615::VinOpenOptions vin_options;
+    vin_options.sensor_name = ax615_cfg_.sensor_name;
+    vin_options.chn_frame_mode = sensor_.chn_frame_mode;
+    vin_options.lane_combo = AX_LANE_COMBO_MODE_2;  // ✅ CRITICAL: OS04D10 使用 LANE_COMBO_MODE_2（匹配 QSDemo）
+    if (!vin_->Open(vin_options)) {
+        std::fprintf(stderr, "[Pipeline][v20260611] vin_->Open() failed\n");
+        return MediaStatusCode::InternalError;
+    }
+    std::fprintf(stderr, "[Pipeline][v20260611] VIN Open OK\n");
+
+    std::fprintf(stderr, "[Pipeline][v20260611] Opening ISP, iq_bin=%s\n", sensor_.iq_bin_path.c_str());
+
+    // 构造 OS04D10 Sensor 属性
+    AX_SNS_ATTR_T sns_attr;
+    std::memset(&sns_attr, 0, sizeof(sns_attr));
+    sns_attr.nWidth = 2560;
+    sns_attr.nHeight = 1440;
+    sns_attr.fFrameRate = 30.0f;
+    sns_attr.eSnsMode = AX_SNS_LINEAR_MODE;
+    sns_attr.eRawType = AX_RT_RAW10;
+    sns_attr.eBayerPattern = AX_BP_RGGB;
+    sns_attr.bTestPatternEnable = AX_FALSE;
+
+    ax615::IspConfig isp_cfg;
+    isp_cfg.pipe_id = ax615_cfg_.pipe_id;
+    isp_cfg.dev_id = ax615_cfg_.dev_id;
+    isp_cfg.iq_bin_path = sensor_.iq_bin_path;
+    isp_cfg.sns_clk_idx = 0;                     // ✅ CRITICAL: Sensor 时钟索引
+    isp_cfg.sns_clk_rate = AX_SNS_CLK_24M;       // ✅ CRITICAL: OS04D10 需要 24MHz 时钟！
+    isp_cfg.register_sensor = true;              // ✅ CRITICAL: 必须注册 Sensor！
+    isp_cfg.register_3a = true;                  // ✅ CRITICAL: 必须注册 3A 算法！
+    isp_cfg.sensor_handle = &gSnsos04d10Obj;    // ✅ CRITICAL: 传入 Sensor 句柄！
+    isp_cfg.sns_attr = &sns_attr;                // ✅ CRITICAL: 传入 Sensor 属性！
+    std::fprintf(stderr, "[Pipeline][DEBUG] ISP config: register_sensor=%d, register_3a=%d, sensor_handle=%p, sns_clk_rate=%d\n",
+                 isp_cfg.register_sensor, isp_cfg.register_3a, isp_cfg.sensor_handle, isp_cfg.sns_clk_rate);
+    if (!isp_->Open(isp_cfg)) {
+        std::fprintf(stderr, "[Pipeline][v20260611] isp_->Open() failed\n");
+        return MediaStatusCode::InternalError;
+    }
+    std::fprintf(stderr, "[Pipeline][v20260611] ISP Open OK\n");
+
+    // ✅ CRITICAL: 立即 EnableChn（匹配 QSDemo，在 ISP Open 后立即调用）
+    // QSDemo 在 ISP Init 后立即调用 StartChn (EnableChn)，不能延迟到后面
+    std::fprintf(stderr, "[Pipeline][v20260611] VIN EnableChn (immediately after ISP Open)\n");
+    if (!vin_->Enable()) {
+        std::fprintf(stderr, "[Pipeline][v20260611] vin_->Enable() failed\n");
+        return MediaStatusCode::InternalError;
+    }
+    std::fprintf(stderr, "[Pipeline][v20260611] VIN EnableChn OK\n");
+
+    std::fprintf(stderr, "[Pipeline][v20260611] Creating VENC channels, count=%zu\n", ax615_cfg_.video_channels.size());
     for (const auto& ch : ax615_cfg_.video_channels) {
         ax615::VencChannelConfig venc_cfg;
         venc_cfg.chn_id = ch.venc_chn_id;
@@ -640,8 +759,10 @@ MediaStatusCode MediaPipelineManager::StartAx615Adapters() {
         });
         status = venc_->CreateChannel(venc_cfg);
         if (status != MediaStatusCode::Ok) {
+            std::fprintf(stderr, "[Pipeline][v20260611] venc_->CreateChannel(%d) failed\n", venc_cfg.chn_id);
             return status;
         }
+        std::fprintf(stderr, "[Pipeline][v20260611] VENC channel %d created OK\n", venc_cfg.chn_id);
     }
 
     for (const auto& ch : ax615_cfg_.jpeg_channels) {
@@ -661,6 +782,7 @@ MediaStatusCode MediaPipelineManager::StartAx615Adapters() {
             return status;
         }
     }
+    std::fprintf(stderr, "[Pipeline][DEBUG] detect_config_.enabled=%d, detect_=%p\n", detect_config_.enabled, (void*)detect_.get());
 
     if (detect_config_.enabled && detect_) {
         ax615::AxDetectConfig detect_cfg;
@@ -686,37 +808,130 @@ MediaStatusCode MediaPipelineManager::StartAx615Adapters() {
         }
     }
 
-    for (const auto& link : link_plan_) {
-        ax615::AxModPort src{ax615::AxModId::VIN, link.src_dev, link.src_chn};
-        ax615::AxModPort dst{ax615::AxModId::IVPS, link.dst_dev, link.dst_chn};
-        if (link.src == "IVPS") {
-            src.mod = ax615::AxModId::IVPS;
-        }
-        if (link.dst == "VENC") {
-            dst.mod = ax615::AxModId::VENC;
-        } else if (link.dst == "JENC") {
-            dst.mod = ax615::AxModId::VENC;
-        }
-        if (!link_->Link(src, dst)) {
-            return MediaStatusCode::InternalError;
-        }
+    // NOTE: Links already established earlier (after IVPS Open, before VIN/ISP Open)
+    // This matches SDK sample order: SYS Init → Link → IVPS Init → Camera Open
+
+    // ========== QSDemo Sequence (qs_common_cam.c lines 282-348) ==========
+    // 1. ISP Init (Create + Register + Open) ✓ Already done in StartAx615Adapters
+    // 2. VIN StartChn (EnableChn) → happens in vin_->Enable() below
+    // 3. VIN StartPipe → happens in vin_->Enable() below
+    // 4. ISP Start → isp_->Start() below
+    // 5. VIN EnableDev → happens in vin_->Enable() below
+    // 6. ISP StreamOn → isp_->StreamOn() below
+    // 7. IVPS Start → ivps_->Start() below
+    // 8. VENC Start → venc_->Start() below
+
+    std::fprintf(stderr, "[Pipeline][v20260611] ========== Starting Camera (VIN + ISP) ==========\n");
+
+    // Step 1: ISP Start
+    // NOTE: VIN Enable (EnableChn + StartPipe) 已经在 StartAx615Adapters 中调用了
+    // CRITICAL: 必须在 VIN StartPipe 之后、VIN EnableDev 之前调用
+    std::fprintf(stderr, "[Pipeline][v20260611] [1/3] Starting ISP\n");
+    if (!isp_->Start()) {
+        std::fprintf(stderr, "[Pipeline][v20260611] isp_->Start() failed\n");
+        return MediaStatusCode::InternalError;
+    }
+    std::fprintf(stderr, "[Pipeline][v20260611] [1/3] ISP Start OK\n");
+
+    // Step 2: VIN StartDev (EnableDev)
+    // CRITICAL: 必须在 ISP Start 之后调用（匹配 QSDemo）
+    std::fprintf(stderr, "[Pipeline][v20260611] [2/3] VIN StartDev (EnableDev)\n");
+    if (!vin_->StartDev()) {
+        std::fprintf(stderr, "[Pipeline][v20260611] vin_->StartDev() failed\n");
+        return MediaStatusCode::InternalError;
+    }
+    std::fprintf(stderr, "[Pipeline][v20260611] [2/3] VIN StartDev OK\n");
+
+    // Step 3: ISP StreamOn
+    std::fprintf(stderr, "[Pipeline][v20260611] [3/3] ISP StreamOn\n");
+    if (!isp_->StreamOn()) {
+        std::fprintf(stderr, "[Pipeline][v20260611] isp_->StreamOn() failed\n");
+        return MediaStatusCode::InternalError;
+    }
+    std::fprintf(stderr, "[Pipeline][v20260611] ========== Camera started successfully ==========\n");
+
+    // ========== Starting backend processors (IVPS + VENC) ==========
+    std::fprintf(stderr, "[Pipeline][v20260611] ========== Starting backend processors ==========\n");
+
+    // Step 4: IVPS Start
+    std::fprintf(stderr, "[Pipeline][v20260611] Starting IVPS\n");
+    if (!ivps_->Start()) {
+        std::fprintf(stderr, "[Pipeline][v20260611] ivps_->Start() failed\n");
+        return MediaStatusCode::InternalError;
     }
 
-    if (!vin_->Enable()) {
-        return MediaStatusCode::InternalError;
-    }
-    if (!isp_->Start()) {
-        return MediaStatusCode::InternalError;
-    }
-    if (!ivps_->Start()) {
-        return MediaStatusCode::InternalError;
-    }
+    // Step 5: VENC Start (all channels)
+    std::fprintf(stderr, "[Pipeline][v20260611] Starting VENC channels (count=%zu)\n", ax615_cfg_.video_channels.size());
     for (const auto& ch : ax615_cfg_.video_channels) {
         status = venc_->Start(ch.venc_chn_id);
         if (status != MediaStatusCode::Ok) {
+            std::fprintf(stderr, "[Pipeline][v20260611] venc_->Start(%d) failed\n", ch.venc_chn_id);
             return status;
         }
     }
+    std::fprintf(stderr, "[Pipeline][v20260611] ========== All modules started successfully ==========\n");
+
+    // DEBUG: Commented out frame capture test - it was interfering with normal operation
+    // The unlink/relink sequence may have caused issues with the data flow
+    /*
+    std::fprintf(stderr, "[Pipeline][DEBUG] Attempting to capture VIN frames for debugging...\n");
+    {
+        ax615::AxModPort src{ax615::AxModId::VIN, 0, 0};
+        ax615::AxModPort dst{ax615::AxModId::IVPS, 0, 0};
+
+        std::fprintf(stderr, "[Pipeline][DEBUG] Unlinking VIN->IVPS temporarily\n");
+        if (link_->UnLink(src, dst)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+            int success_count = 0;
+            for (int i = 0; i < 5 && success_count < 3; i++) {
+                AX_IMG_INFO_T img_info;
+                std::memset(&img_info, 0, sizeof(img_info));
+                AX_S32 ret = AX_VIN_GetYuvFrame(0, AX_VIN_CHN_ID_MAIN, &img_info, 1000);
+                if (ret == AX_SUCCESS) {
+                    std::fprintf(stderr, "[Pipeline][DEBUG] Got VIN frame #%d: %ux%u, stride=%u, format=%d, phyAddr=0x%llx\n",
+                                success_count + 1,
+                                img_info.tFrameInfo.stVFrame.u32Width,
+                                img_info.tFrameInfo.stVFrame.u32Height,
+                                img_info.tFrameInfo.stVFrame.u32PicStride[0],
+                                img_info.tFrameInfo.stVFrame.enImgFormat,
+                                img_info.tFrameInfo.stVFrame.u64PhyAddr[0]);
+
+                    if (success_count == 0) {
+                        char filename[128];
+                        snprintf(filename, sizeof(filename), "/tmp/vin_frame_%ux%u.yuv",
+                                img_info.tFrameInfo.stVFrame.u32Width,
+                                img_info.tFrameInfo.stVFrame.u32Height);
+                        FILE* fp = fopen(filename, "wb");
+                        if (fp) {
+                            size_t y_size = img_info.tFrameInfo.stVFrame.u32PicStride[0] * img_info.tFrameInfo.stVFrame.u32Height;
+                            size_t uv_size = y_size / 2;
+                            if (img_info.tFrameInfo.stVFrame.u64VirAddr[0]) {
+                                fwrite((void*)img_info.tFrameInfo.stVFrame.u64VirAddr[0], 1, y_size, fp);
+                            }
+                            if (img_info.tFrameInfo.stVFrame.u64VirAddr[1]) {
+                                fwrite((void*)img_info.tFrameInfo.stVFrame.u64VirAddr[1], 1, uv_size, fp);
+                            }
+                            fclose(fp);
+                            std::fprintf(stderr, "[Pipeline][DEBUG] Saved frame to %s\n", filename);
+                        }
+                    }
+
+                    AX_VIN_ReleaseYuvFrame(0, AX_VIN_CHN_ID_MAIN, &img_info);
+                    success_count++;
+                } else {
+                    std::fprintf(stderr, "[Pipeline][DEBUG] VIN GetYuvFrame attempt %d failed: 0x%x\n", i + 1, ret);
+                }
+            }
+
+            std::fprintf(stderr, "[Pipeline][DEBUG] Captured %d frames, re-linking VIN->IVPS\n", success_count);
+            link_->Link(src, dst);
+        } else {
+            std::fprintf(stderr, "[Pipeline][DEBUG] UnLink failed, skipping frame capture\n");
+        }
+    }
+    */
+
     if (audio_config_.enabled) {
         status = audio_service_->StartCapture(audio_config_.enc_chn_id);
         if (status != MediaStatusCode::Ok) {
@@ -734,54 +949,95 @@ MediaStatusCode MediaPipelineManager::StartAx615Adapters() {
 }
 
 void MediaPipelineManager::StopAx615Adapters() {
+    std::fprintf(stderr, "[Pipeline][DEBUG] StopAx615Adapters begin\n");
 #if defined(LIBMEDIA_BUILD_AX615_ADAPTERS)
+    // Shutdown sequence matching SDK sample (reverse of initialization):
+    // 1. Stop downstream consumers first (VENC, JENC, OSD, Detect)
+    // 2. Stop pipeline processors (IVPS, ISP, VIN)
+    // 3. Unlink modules (after all modules stopped)
+    // 4. Deinitialize system
+
+    std::fprintf(stderr, "[Pipeline][DEBUG] Checking detect_service\n");
     if (detect_service_) {
         detect_service_->StopDetect();
     }
+    std::fprintf(stderr, "[Pipeline][DEBUG] Checking audio_service\n");
     if (audio_service_) {
         audio_service_->StopCapture(audio_config_.enc_chn_id);
         audio_service_->StopPlayback(audio_config_.play_dev_id);
     }
+    std::fprintf(stderr, "[Pipeline][DEBUG] Checking detect\n");
     if (detect_) {
         detect_->Close();
     }
+    std::fprintf(stderr, "[Pipeline][DEBUG] Checking osd\n");
     if (osd_) {
         osd_->ClearAll();
         osd_->Close();
     }
+    std::fprintf(stderr, "[Pipeline][DEBUG] Checking audio_capture\n");
     if (audio_capture_) {
         audio_capture_->Close();
     }
+    std::fprintf(stderr, "[Pipeline][DEBUG] Checking audio_play\n");
     if (audio_play_) {
         audio_play_->Close();
     }
+
+    // Stop and destroy VENC channels
+    std::fprintf(stderr, "[Pipeline][DEBUG] Stopping VENC\n");
     if (venc_) {
         for (const auto& ch : ax615_cfg_.video_channels) {
             venc_->Stop(ch.venc_chn_id);
             venc_->DestroyChannel(ch.venc_chn_id);
         }
     }
+    std::fprintf(stderr, "[Pipeline][DEBUG] Checking jenc\n");
     if (jenc_) {
         jenc_->CloseAll();
     }
+
+    // Stop and close pipeline modules
+    // CRITICAL: Stop VIN data flow first, then stop ISP, then close in reverse order
+    std::fprintf(stderr, "[Pipeline][DEBUG] Disabling VIN (stop data flow)\n");
+    if (vin_) {
+        vin_->Disable();
+    }
+    std::fprintf(stderr, "[Pipeline][DEBUG] Stopping ISP\n");
+    if (isp_) {
+        isp_->Stop();
+    }
+    std::fprintf(stderr, "[Pipeline][DEBUG] Stopping IVPS\n");
+    if (ivps_) {
+        ivps_->Stop();
+    }
+
+    // Now close in reverse order (IVPS -> ISP -> VIN)
+    std::fprintf(stderr, "[Pipeline][DEBUG] Closing IVPS\n");
+    if (ivps_) {
+        ivps_->Close();
+    }
+    std::fprintf(stderr, "[Pipeline][DEBUG] Closing ISP\n");
+    if (isp_) {
+        isp_->Close();
+    }
+    std::fprintf(stderr, "[Pipeline][DEBUG] Closing VIN\n");
+    if (vin_) {
+        vin_->Close();
+    }
+
+    // CRITICAL: Unlink AFTER all modules are stopped (matches SDK sample order)
+    std::fprintf(stderr, "[Pipeline][DEBUG] UnLinking\n");
     if (link_) {
         link_->UnLinkAll();
     }
-    if (ivps_) {
-        ivps_->Stop();
-        ivps_->Close();
-    }
-    if (isp_) {
-        isp_->Stop();
-        isp_->Close();
-    }
-    if (vin_) {
-        vin_->Disable();
-        vin_->Close();
-    }
+
+    // Finally deinitialize system
+    std::fprintf(stderr, "[Pipeline][DEBUG] Deinit SYS\n");
     if (sys_) {
         sys_->Deinit();
     }
+    std::fprintf(stderr, "[Pipeline][DEBUG] StopAx615Adapters completed\n");
 #endif
 }
 

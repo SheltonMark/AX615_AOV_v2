@@ -44,6 +44,10 @@ public:
     /// 计算并配置 CMPool（调用 AX_POOL_SetConfig + AX_POOL_Init）
     MediaStatusCode ConfigCmPool(const std::vector<PoolBlockCfg>& pools);
 
+    /// 配置 VIN 私有内存池（调用 AX_VIN_SetPoolAttr）
+    /// 这是 QSDemo QS_COMMON_CAM_PrivPoolInit 的移植，必须在 VIN Open 前调用
+    MediaStatusCode ConfigVinPrivatePool(const std::vector<PoolBlockCfg>& pools);
+
     /// 反初始化
     void Deinit();
 

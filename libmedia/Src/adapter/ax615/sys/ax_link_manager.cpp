@@ -2,6 +2,8 @@
 
 #include "ax_sys_api.h"
 #include <algorithm>
+#include <cstdio>
+#include <cstring>
 
 namespace aov::media::ax615 {
 
@@ -23,18 +25,63 @@ bool SameLink(const AxLink& link, const AxModPort& src, const AxModPort& dst) {
 }  // namespace
 
 AxLinkManager::~AxLinkManager() {
+    std::fprintf(stderr, "[AxLinkManager][DEBUG] Destructor called, links count=%zu\n", links_.size());
     UnLinkAll();
+    std::fprintf(stderr, "[AxLinkManager][DEBUG] Destructor completed\n");
 }
 
 bool AxLinkManager::Link(const AxModPort& src, const AxModPort& dst) {
     AX_MOD_INFO_T ax_src = ToAxMod(src);
     AX_MOD_INFO_T ax_dst = ToAxMod(dst);
-    AX_S32 ret = AX_SYS_Link(&ax_src, &ax_dst);
+
+    std::fprintf(stderr, "[AxLinkManager][v20260611] Linking: src(mod=%d, grp=%d, chn=%d) -> dst(mod=%d, grp=%d, chn=%d)\n",
+                 ax_src.enModId, ax_src.s32GrpId, ax_src.s32ChnId,
+                 ax_dst.enModId, ax_dst.s32GrpId, ax_dst.s32ChnId);
+
+    // Use AX_SYS_Link_V2 with link attributes (like QSDemo does)
+    AX_MOD_LINK_ATTR_T link_attr;
+    std::memset(&link_attr, 0, sizeof(link_attr));
+
+    // Set link mode based on src/dst modules (matching QSDemo behavior)
+    if (ax_src.enModId == AX_ID_VIN && ax_dst.enModId == AX_ID_IVPS) {
+        // VIN -> IVPS: Try LOW_MEM mode instead of OFFLINE (QSDemo line 3047-3050)
+        // CRITICAL: OFFLINE mode seems to have flow control issues with GDC engine
+        link_attr.eDataFlowMode = AX_MOD_DATA_FLOW_SW_LOW_MEM;
+        link_attr.eSrcEngine = AX_ENG_NONE;
+        link_attr.eDstEngine = AX_ENG_GDC;  // Match IVPS group filter engine
+        link_attr.nRingLineCnt = 128;
+        std::fprintf(stderr, "[AxLinkManager][v20260611] VIN->IVPS: LOW_MEM mode with GDC engine\n");
+    } else if (ax_src.enModId == AX_ID_IVPS && ax_dst.enModId == AX_ID_VENC) {
+        // IVPS -> VENC: use LOW_MEM mode (QSDemo line 260)
+        link_attr.eDataFlowMode = AX_MOD_DATA_FLOW_SW_LOW_MEM;
+        link_attr.eSrcEngine = AX_ENG_VPP;
+        link_attr.eDstEngine = AX_ENG_VENC;
+        link_attr.nRingLineCnt = 128;
+        std::fprintf(stderr, "[AxLinkManager][v20260611] IVPS->VENC: LOW_MEM mode\n");
+    } else if (ax_src.enModId == AX_ID_IVPS && ax_dst.enModId == AX_ID_JENC) {
+        // IVPS -> JENC: use LOW_MEM mode
+        link_attr.eDataFlowMode = AX_MOD_DATA_FLOW_SW_LOW_MEM;
+        link_attr.eSrcEngine = AX_ENG_VPP;
+        link_attr.eDstEngine = AX_ENG_JENC;
+        link_attr.nRingLineCnt = 128;
+        std::fprintf(stderr, "[AxLinkManager][v20260611] IVPS->JENC: LOW_MEM mode\n");
+    } else {
+        // Default: OFFLINE mode
+        link_attr.eDataFlowMode = AX_MOD_DATA_FLOW_SW_OFFLINE;
+        link_attr.eSrcEngine = AX_ENG_NONE;
+        link_attr.eDstEngine = AX_ENG_NONE;
+        link_attr.nRingLineCnt = 0;
+        std::fprintf(stderr, "[AxLinkManager][v20260611] Using default OFFLINE mode\n");
+    }
+
+    AX_S32 ret = AX_SYS_Link_V2(&ax_src, &ax_dst, &link_attr);
     if (ret != AX_SUCCESS) {
+        std::fprintf(stderr, "[AxLinkManager][v20260611] AX_SYS_Link_V2 failed: 0x%x\n", ret);
         return false;
     }
 
     links_.push_back({src, dst});
+    std::fprintf(stderr, "[AxLinkManager][v20260611] Link OK\n");
     return true;
 }
 

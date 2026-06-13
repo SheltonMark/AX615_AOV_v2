@@ -3,7 +3,7 @@
 
 #include "../../app/cloud/cloud_packet_sink.hpp"
 #include "../../app/packet/media_packet_router.hpp"
-#include "../../app/packet/packet_service_stub.hpp"
+#include "../../app/packet/packet_service.hpp"
 
 namespace {
 
@@ -17,7 +17,7 @@ int Fail(const char* message) {
 int main() {
     using namespace aov::app;
 
-    packet::PacketServiceStub packet_service;
+    packet::PacketService packet_service;
     if (!packet_service.Init(packet::PacketConfig {}).ok()) {
         return Fail("packet service init failed");
     }
@@ -66,7 +66,7 @@ int main() {
     }
 
     cloud::CloudPacketSink live_sink(&live);
-    if (!cloud::BindCloudToPacket(router, live_sink).ok()) {
+    if (!cloud::BindCloudLiveToPacket(router, live_sink).ok()) {
         return Fail("bind live cloud sink failed");
     }
     if (!router.OnMediaFrame(frame).ok()) {
@@ -86,15 +86,16 @@ int main() {
     }
 
     cloud::CloudPacketSink storage_sink(nullptr, &cloud_storage);
-    if (!cloud::BindCloudToPacket(router, storage_sink).ok()) {
+    if (!cloud::BindCloudStorageToPacket(router, storage_sink).ok()) {
         return Fail("bind cloud storage sink failed");
     }
     if (!router.OnMediaFrame(frame).ok()) {
         return Fail("publish frame to cloud storage sink failed");
     }
-    if (cloud_storage.GetStats().sent_video_frames != 1 ||
+    if (live.GetStats().sent_video_frames != 2 ||
+        cloud_storage.GetStats().sent_video_frames != 1 ||
         cloud_storage.GetStats().sent_video_bytes != sizeof(payload)) {
-        return Fail("cloud packet sink did not forward frame to cloud storage");
+        return Fail("cloud live and cloud storage sinks must receive independently");
     }
 
     std::cout << "cloud packet sink contract passed\n";

@@ -57,5 +57,9 @@ private:
 
 CloudPacketSinkResult BindCloudToPacket(aov::app::packet::MediaPacketRouter& router,
                                         CloudPacketSink& sink);
+CloudPacketSinkResult BindCloudLiveToPacket(aov::app::packet::MediaPacketRouter& router,
+                                            CloudPacketSink& sink);
+CloudPacketSinkResult BindCloudStorageToPacket(aov::app::packet::MediaPacketRouter& router,
+                                               CloudPacketSink& sink);
 
 } // namespace aov::app::cloud

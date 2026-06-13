@@ -49,13 +49,16 @@ CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: ../Include/comm
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: ../Include/common/media_types.hpp
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: ../Src/adapter/ax615/isp/ax_isp_adapter.cpp
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: ../Src/adapter/ax615/isp/ax_isp_adapter.hpp
+CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_autokit_api.h
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_autokit_iq_api.h
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_base_type.h
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_global_type.h
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_3a_api.h
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_3a_struct.h
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_api.h
+CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_api_ext.h
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_common.h
+CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_error_code.h
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_iq_api.h
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_version.h
 CMakeFiles/media.dir/Src/adapter/ax615/isp/ax_isp_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_lens_struct.h
@@ -126,8 +129,10 @@ CMakeFiles/media.dir/Src/adapter/ax615/sys/ax_sys_adapter.cpp.o: ../Src/adapter/
 CMakeFiles/media.dir/Src/adapter/ax615/sys/ax_sys_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_base_type.h
 CMakeFiles/media.dir/Src/adapter/ax615/sys/ax_sys_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_buffer_tool.h
 CMakeFiles/media.dir/Src/adapter/ax615/sys/ax_sys_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_global_type.h
+CMakeFiles/media.dir/Src/adapter/ax615/sys/ax_sys_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_common.h
 CMakeFiles/media.dir/Src/adapter/ax615/sys/ax_sys_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_pool_type.h
 CMakeFiles/media.dir/Src/adapter/ax615/sys/ax_sys_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_sys_api.h
+CMakeFiles/media.dir/Src/adapter/ax615/sys/ax_sys_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_vin_api.h
 
 CMakeFiles/media.dir/Src/adapter/ax615/venc/ax_venc_adapter.cpp.o: ../Include/common/media_status.hpp
 CMakeFiles/media.dir/Src/adapter/ax615/venc/ax_venc_adapter.cpp.o: ../Include/common/media_types.hpp
@@ -144,6 +149,7 @@ CMakeFiles/media.dir/Src/adapter/ax615/vin/ax_vin_adapter.cpp.o: ../Src/adapter/
 CMakeFiles/media.dir/Src/adapter/ax615/vin/ax_vin_adapter.cpp.o: ../Src/adapter/ax615/vin/ax_vin_adapter.hpp
 CMakeFiles/media.dir/Src/adapter/ax615/vin/ax_vin_adapter.cpp.o: ../Src/adapter/ax615/vin/sensor_registry.hpp
 CMakeFiles/media.dir/Src/adapter/ax615/vin/ax_vin_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_base_type.h
+CMakeFiles/media.dir/Src/adapter/ax615/vin/ax_vin_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_buffer_tool.h
 CMakeFiles/media.dir/Src/adapter/ax615/vin/ax_vin_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_global_type.h
 CMakeFiles/media.dir/Src/adapter/ax615/vin/ax_vin_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_3a_struct.h
 CMakeFiles/media.dir/Src/adapter/ax615/vin/ax_vin_adapter.cpp.o: /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_common.h

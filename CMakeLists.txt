@@ -66,6 +66,7 @@ add_library(ax615_aov_app_core OBJECT
     app/core/aov_orchestrator_stub.cpp
     app/core/work_mode_state_machine.cpp
     app/packet/media_packet_router.cpp
+    app/packet/packet_service.cpp
     app/packet/packet_service_stub.cpp
     app/storage/dhfs/dhfs_writer_stub.cpp
     app/storage/packet_storage_pipeline.cpp

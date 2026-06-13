@@ -41,12 +41,16 @@ SensorProfile MakeOs04d10Profile() {
 
     profile.dev_attr.bImgDataEnable = AX_TRUE;
     profile.dev_attr.bNonImgDataEnable = AX_FALSE;
+    // Device attributes (matching QSDemo gOs04d10DevAttr)
+    profile.dev_attr.bImgDataEnable = AX_TRUE;
+    profile.dev_attr.bNonImgDataEnable = AX_FALSE;
     profile.dev_attr.eDevMode = AX_VIN_DEV_ONLINE;
     profile.dev_attr.eDevWorkMode = AX_VIN_DEV_WORK_MODE_1MULTIPLEX;
     profile.dev_attr.eSnsIntfType = AX_SNS_INTF_TYPE_MIPI_RAW;
-    for (auto& rgn : profile.dev_attr.tDevImgRgn) {
-        rgn = {0, 0, kWidth, kHeight};
-    }
+    profile.dev_attr.tDevImgRgn[0] = {0, 0, kWidth, kHeight};
+    profile.dev_attr.tDevImgRgn[1] = {0, 0, kWidth, kHeight};
+    profile.dev_attr.tDevImgRgn[2] = {0, 0, kWidth, kHeight};
+    profile.dev_attr.tDevImgRgn[3] = {0, 0, kWidth, kHeight};
     profile.dev_attr.ePixelFmt = AX_FORMAT_BAYER_RAW_10BPP_PACKED;
     profile.dev_attr.eBayerPattern = AX_BP_RGGB;
     profile.dev_attr.eSnsMode = AX_SNS_LINEAR_MODE;
@@ -54,6 +58,8 @@ SensorProfile MakeOs04d10Profile() {
     profile.dev_attr.tCompressInfo = {AX_COMPRESS_MODE_NONE, 0};
     profile.dev_attr.tFrameRateCtrl = {AX_INVALID_FRMRATE, AX_INVALID_FRMRATE};
 
+    // Match QSDemo's gOs04d10PipeAttr exactly (vin_config.h line 175-184)
+    // QSDemo uses NORMAL_MODE1 even with nLowMemMode=0
     profile.pipe_attr.ePipeWorkMode = AX_VIN_PIPE_NORMAL_MODE1;
     profile.pipe_attr.tPipeImgRgn = {0, 0, kWidth, kHeight};
     profile.pipe_attr.eBayerPattern = AX_BP_RGGB;
@@ -71,7 +77,7 @@ SensorProfile MakeOs04d10Profile() {
     chn0.nHeight = kHeight;
     chn0.nWidthStride = kWidth;
     chn0.eImgFormat = AX_FORMAT_YUV420_SEMIPLANAR;
-    chn0.nDepth = 0;
+    chn0.nDepth = 2;  // CRITICAL: Must be >0 to allow AX_VIN_GetYuvFrame (was 0, causing 0x80110180)
     chn0.tCompressInfo = {AX_COMPRESS_MODE_LOSSY, 0};
     chn0.tFrameRateCtrl = {AX_INVALID_FRMRATE, AX_INVALID_FRMRATE};
     profile.chn_attrs.push_back(chn0);

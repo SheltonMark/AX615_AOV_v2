@@ -19,7 +19,7 @@
 #include "app/config/config_service_stub.hpp"
 #include "app/core/aov_app_runtime.hpp"
 #include "app/core/aov_orchestrator_stub.hpp"
-#include "app/packet/packet_service_stub.hpp"
+#include "app/packet/packet_service.hpp"
 #include "app/storage/dhfs/dhfs_writer_stub.hpp"
 #include "app/storage/storage_service_stub.hpp"
 
@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
     aov::app::CloudServiceStub        cloud;
     aov::app::ConfigServiceStub       config;
     aov::app::AovOrchestratorStub     orchestrator;
-    aov::app::packet::PacketServiceStub packet;
+    aov::app::packet::PacketService packet;
     aov::app::storage::StorageServiceStub app_storage(
         std::make_unique<aov::app::storage::dhfs::DhfsWriterStub>());
     aov::app::core::AovAppRuntime runtime(config,

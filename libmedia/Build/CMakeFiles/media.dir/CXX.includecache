@@ -145,9 +145,13 @@ ax_isp_3a_api.h
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/isp/ax_isp_3a_api.h
 ax_autokit_iq_api.h
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/isp/ax_autokit_iq_api.h
+ax_autokit_api.h
+/home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/isp/ax_autokit_api.h
 ax_isp_iq_api.h
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/isp/ax_isp_iq_api.h
 cstdio
+-
+cstring
 -
 
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/isp/ax_isp_adapter.hpp
@@ -168,6 +172,8 @@ string
 ax_ivps_adapter.hpp
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/ivps/ax_ivps_adapter.hpp
 algorithm
+-
+cstdio
 -
 cstring
 -
@@ -237,6 +243,10 @@ ax_sys_api.h
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/sys/ax_sys_api.h
 algorithm
 -
+cstdio
+-
+cstring
+-
 
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/sys/ax_link_manager.hpp
 vector
@@ -249,6 +259,8 @@ ax_sys_adapter.hpp
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/sys/ax_sys_adapter.hpp
 ax_buffer_tool.h
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/sys/ax_buffer_tool.h
+ax_vin_api.h
+/home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/sys/ax_vin_api.h
 cstdio
 -
 cstring
@@ -295,6 +307,8 @@ ax_venc_api.h
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/vin/ax_vin_adapter.cpp
 ax_vin_adapter.hpp
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/vin/ax_vin_adapter.hpp
+ax_buffer_tool.h
+/home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/vin/ax_buffer_tool.h
 cstdio
 -
 cstring
@@ -441,6 +455,12 @@ media_pipeline_manager.hpp
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/video/video_stream_service.hpp
 utility
 -
+cstring
+-
+chrono
+-
+thread
+-
 ../adapter/ax615/audio/ax_audio_capture_adapter.hpp
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/audio/ax_audio_capture_adapter.hpp
 ../adapter/ax615/audio/ax_audio_play_adapter.hpp
@@ -465,6 +485,10 @@ utility
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/venc/ax_venc_adapter.hpp
 ../adapter/ax615/vin/ax_vin_adapter.hpp
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/adapter/ax615/vin/ax_vin_adapter.hpp
+ax_ivps_api.h
+/home/mashuntao/AOV_AX615/code_v2/libmedia/Src/pipeline/ax_ivps_api.h
+ax_pool_type.h
+/home/mashuntao/AOV_AX615/code_v2/libmedia/Src/pipeline/ax_pool_type.h
 
 /home/mashuntao/AOV_AX615/code_v2/libmedia/Src/pipeline/media_pipeline_manager.hpp
 runtime/i_media_runtime.hpp
@@ -552,6 +576,12 @@ ax_base_type.h
 ax_global_type.h
 /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_global_type.h
 
+/home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_autokit_api.h
+ax_base_type.h
+/home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_base_type.h
+ax_isp_api_ext.h
+/home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_api_ext.h
+
 /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_autokit_iq_api.h
 ax_isp_iq_api.h
 /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_iq_api.h
@@ -604,9 +634,23 @@ ax_isp_version.h
 ax_sensor_struct.h
 /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_sensor_struct.h
 
+/home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_api_ext.h
+ax_base_type.h
+/home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_base_type.h
+ax_isp_error_code.h
+/home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_error_code.h
+ax_isp_common.h
+/home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_common.h
+ax_isp_api.h
+/home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_api.h
+
 /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_common.h
 ax_base_type.h
 /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_base_type.h
+ax_global_type.h
+/home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_global_type.h
+
+/home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_isp_error_code.h
 ax_global_type.h
 /home/mashuntao/ax615_sdk_clean/02.SDK/AX615_SDK_V2.0.0_P5_20260326181014_NO68/msp/out/arm_uclibc/include/ax_global_type.h
 

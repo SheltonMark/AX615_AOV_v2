@@ -82,6 +82,7 @@ MediaStatusCode AxDetectAdapter::Open(const AxDetectConfig& cfg) {
 
     cfg_ = cfg;
     opened_ = true;
+	std::fprintf(stderr, "[AxDetectAdapter] SKEL Opened successfully\n");
     return MediaStatusCode::Ok;
 }
 
@@ -112,6 +113,8 @@ MediaStatusCode AxDetectAdapter::SendFrame(int stream_id, uint64_t frame_id, con
         return MediaStatusCode::InvalidArgument;
     }
 
+	static int count = 0; if (++count <= 5) std::fprintf(stderr, "[AxDetectAdapter] SendFrame #%d\n", count);
+
     AX_SKEL_FRAME_T skel_frame;
     std::memset(&skel_frame, 0, sizeof(skel_frame));
     skel_frame.nStreamId = static_cast<AX_U32>(stream_id);
@@ -128,6 +131,8 @@ void AxDetectAdapter::SetResultCallback(AxDetectCallback cb) {
 }
 
 void AxDetectAdapter::OnSkelResult(AX_SKEL_HANDLE, AX_SKEL_RESULT_T* result, AX_VOID* user_data) {
+	static int count = 0; if (++count <= 5) 
+	std::fprintf(stderr, "[AxDetectAdapter] OnSkelResult #%d, obj=%u\n", count, result ? result->nObjectSize : 0);
     if (!result || !user_data) {
         return;
     }

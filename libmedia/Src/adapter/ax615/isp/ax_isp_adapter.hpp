@@ -18,6 +18,7 @@ struct IspConfig {
     AX_SNS_CLK_RATE_E sns_clk_rate = AX_SNS_CLK_NOT_CFG;
     std::string iq_bin_path;
     AX_SENSOR_REGISTER_FUNC_T* sensor_handle = nullptr;
+    AX_SNS_ATTR_T* sns_attr = nullptr;  // ✅ 添加 Sensor 属性
     bool register_sensor = false;
     bool register_3a = true;
 };
@@ -32,6 +33,7 @@ public:
 
     bool Open(const IspConfig& cfg);
     bool Start();
+    bool StreamOn();
     void Stop();
     void Close();
 
@@ -57,9 +59,11 @@ private:
     bool opened_ = false;
     bool running_ = false;
     bool sensor_registered_ = false;
+    bool autokit_registered_ = false;
     bool ae_registered_ = false;
     bool awb_registered_ = false;
     bool sns_clk_opened_ = false;
+    bool stream_on_ = false;
 };
 
 }  // namespace aov::media::ax615

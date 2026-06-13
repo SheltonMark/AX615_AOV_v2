@@ -11,7 +11,15 @@ PacketResult MediaPacketRouter::BindStorageSink(PacketFrameCallback callback) {
 }
 
 PacketResult MediaPacketRouter::BindCloudSink(PacketFrameCallback callback) {
-    return packet_service_.Subscribe(PacketConsumerId::Cloud, std::move(callback));
+    return BindCloudLiveSink(std::move(callback));
+}
+
+PacketResult MediaPacketRouter::BindCloudLiveSink(PacketFrameCallback callback) {
+    return packet_service_.Subscribe(PacketConsumerId::CloudLive, std::move(callback));
+}
+
+PacketResult MediaPacketRouter::BindCloudStorageSink(PacketFrameCallback callback) {
+    return packet_service_.Subscribe(PacketConsumerId::CloudStorage, std::move(callback));
 }
 
 void MediaPacketRouter::UnbindStorageSink() {
@@ -19,7 +27,15 @@ void MediaPacketRouter::UnbindStorageSink() {
 }
 
 void MediaPacketRouter::UnbindCloudSink() {
-    packet_service_.Unsubscribe(PacketConsumerId::Cloud);
+    UnbindCloudLiveSink();
+}
+
+void MediaPacketRouter::UnbindCloudLiveSink() {
+    packet_service_.Unsubscribe(PacketConsumerId::CloudLive);
+}
+
+void MediaPacketRouter::UnbindCloudStorageSink() {
+    packet_service_.Unsubscribe(PacketConsumerId::CloudStorage);
 }
 
 PacketResult MediaPacketRouter::OnMediaFrame(const aov::media::StreamFrame& frame) {

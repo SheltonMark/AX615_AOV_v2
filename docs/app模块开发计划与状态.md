@@ -20,7 +20,7 @@
 | `app/config` | DONE | 配置结构体、默认值、校验、Desired/Active/Pending、关键配置持久化已完成 |
 | `app/cloud` | DONE | 属性/动作/状态映射、TencentCloudService、cloud packet sink、直播/云存推流适配、腾讯物模型桥接、generated SDK 回调已接入；真实板端腾讯 SDK 联调属于板端验证项 |
 | `app/core` | DONE | 状态机、配置应用、drain 判断、云端动作执行器、检测告警联动、app runtime 主链路已有合同测试 |
-| `app/packet` | DONE | 当前已有媒体帧承载、订阅分发、storage/cloud sink 基础链路；后续接真实 Packet 库为优化项 |
+| `app/packet` | DONE | 当前已有媒体帧承载、订阅分发、buffer pool、消费者独立队列、Storage/CloudLive/CloudStorage 策略、压力/恢复通知、音视频元信息；后续是否内建 worker 为优化项 |
 | `app/storage` | BLOCKED | Packet 到 storage stub 链路已完成；真实 PS/PES + DHFS 写盘已单独输出设计文档，后续由 storage 同事实现 |
 | `app/alarm` | DONE | 告警配置联动字段、防抖、布防时间、检测告警触发本地录像/云存闭环已接入；声光执行复用 core command/libsys device |
 | `app/entry` | DONE | 已从 stub bootstrap 切换为 app runtime bootstrap |
@@ -108,11 +108,12 @@ code_v2/CMakeLists.txt
 
 | ID | 任务 | 状态 | 验收方式 |
 | --- | --- | --- | --- |
-| E1 | 定义 `PacketFrame`、订阅者、统计信息 | DONE | packet/storage 测试覆盖 |
-| E2 | 分发到 storage sink | DONE | storage sink 收到帧并更新 drain 状态 |
+| E1 | 定义 `PacketFrame`、订阅者、统计信息 | DONE | 已补 `PacketMediaType`、`PacketConsumerStats`、published/delivered/dropped/backlog 统计；`test_packet_service_contract` 覆盖 |
+| E2 | 分发到 storage sink | DONE | storage sink 收到帧并更新 drain 状态；`test_packet_storage_pipeline` 通过 |
 | E3 | 分发到 cloud sink | DONE | `test_cloud_packet_sink_contract` 通过，runtime 已同时绑定 storage/cloud sink |
 | E4 | 接入 libmedia 裸码流回调 | DONE | `AovAppRuntime` 可注入 `libmedia::IMediaRuntime`，初始化时注册 ch0/ch1 视频帧回调并转发到 `PacketService`；`test_aov_app_runtime_contract` 覆盖 libmedia -> packet -> storage |
-| E5 | 评估是否替换为旧项目 `libPacket.a` 真实实现 | LATER | 当前 wrapper 满足架构验证，真实库迁移后再替换 |
+| E5 | 产品化 PacketService 第一版 | DONE | 已新增 `PacketService`，支持固定 buffer pool、每消费者独立队列、CloudLive/Storage 独立背压、P 帧丢弃后等待 I 帧恢复；旧 `PacketServiceStub` 保留回退，不迁移 web/nvr/rtsp/GB28181 分支 |
+| E6 | Storage/CloudLive/CloudStorage 策略细化 | DONE | 已参考旧 Kylin `DevBufSendManager` 的模块独立限额/队列思想，补三类消费者默认队列、背压、溢出通知、恢复通知和直播/云存分离绑定；`test_packet_service_contract`、`test_cloud_packet_sink_contract`、`test_packet_storage_pipeline` 通过 |
 
 ### 阶段 F：app/alarm 告警策略
 

@@ -2,8 +2,10 @@
 
 #include "ax_isp_3a_api.h"
 #include "ax_autokit_iq_api.h"
+#include "ax_autokit_api.h"
 #include "ax_isp_iq_api.h"
 #include <cstdio>
+#include <cstring>
 
 namespace aov::media::ax615 {
 namespace {
@@ -33,92 +35,223 @@ bool AxIspAdapter::Open(const IspConfig& cfg) {
 
     cfg_ = cfg;
 
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] ========== ISP Open Start ==========\n");
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] pipe_id=%d, register_sensor=%d, register_3a=%d\n",
+                 cfg_.pipe_id, cfg_.register_sensor, cfg_.register_3a);
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] sns_clk_idx=%d, sns_clk_rate=%d\n",
+                 cfg_.sns_clk_idx, cfg_.sns_clk_rate);
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] iq_bin_path=%s\n", cfg_.iq_bin_path.c_str());
+
     if (cfg_.sns_clk_rate != AX_SNS_CLK_NOT_CFG) {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] Opening sensor clock\n");
         AX_S32 ret = AX_ISP_OpenSnsClk(cfg_.sns_clk_idx, cfg_.sns_clk_rate);
         if (ret != AX_SUCCESS) {
             std::fprintf(stderr, "[AxIspAdapter] AX_ISP_OpenSnsClk failed: 0x%x\n", ret);
             return false;
         }
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] Sensor clock opened\n");
         sns_clk_opened_ = true;
     }
 
+    // ✅ CRITICAL: Reset Sensor（匹配 QSDemo）
+    // OS04D10 的 Reset GPIO 是 69（dev_id=0）
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Checking sensor reset: sensor_handle=%p\n", cfg_.sensor_handle);
+    if (cfg_.sensor_handle) {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] pfn_sensor_reset=%p\n", cfg_.sensor_handle->pfn_sensor_reset);
+        if (cfg_.sensor_handle->pfn_sensor_reset) {
+            AX_U32 reset_gpio = (cfg_.dev_id == 0) ? 69 : 67;  // QSDemo: dev0=69, dev1=67
+            std::fprintf(stderr, "[AxIspAdapter][DEBUG] Resetting sensor: gpio=%u, pipe=%u, dev=%u\n",
+                         reset_gpio, cfg_.pipe_id, cfg_.dev_id);
+            cfg_.sensor_handle->pfn_sensor_reset(cfg_.pipe_id, reset_gpio);
+            std::fprintf(stderr, "[AxIspAdapter][DEBUG] Sensor reset OK\n");
+        } else {
+            std::fprintf(stderr, "[AxIspAdapter][DEBUG] pfn_sensor_reset is NULL, skipping reset\n");
+        }
+    }
+
+    // ✅ CRITICAL: RegisterSensor 必须在 ISP Create 之前！（参考 QSDemo）
+    if (cfg_.register_sensor && !RegisterSensor()) {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] RegisterSensor failed\n");
+        Close();
+        return false;
+    }
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] RegisterSensor OK\n");
+
+    // ✅ CRITICAL: SetSnsAttr 必须在 RegisterSensor 之后、Create 之前！
+    if (cfg_.register_sensor && cfg_.sns_attr) {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling AX_ISP_SetSnsAttr\n");
+        AX_S32 ret = AX_ISP_SetSnsAttr(cfg_.pipe_id, cfg_.sns_attr);
+        if (ret != AX_SUCCESS) {
+            std::fprintf(stderr, "[AxIspAdapter] AX_ISP_SetSnsAttr failed: 0x%x\n", ret);
+            Close();
+            return false;
+        }
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] AX_ISP_SetSnsAttr OK\n");
+    }
+
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling AX_ISP_Create\n");
     AX_S32 ret = AX_ISP_Create(cfg_.pipe_id);
     if (ret != AX_SUCCESS) {
         std::fprintf(stderr, "[AxIspAdapter] AX_ISP_Create failed: 0x%x\n", ret);
         Close();
         return false;
     }
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] AX_ISP_Create OK\n");
     created_ = true;
 
-    if (cfg_.register_sensor && !RegisterSensor()) {
-        Close();
-        return false;
+    // CRITICAL: QSDemo calls QS_COMMON_ISP_RegisterAutokitLib right after AX_ISP_Create.
+    // Without this, AX_VIN_StartPipe fails with 0x80110180 because the ISP pipeline
+    // is not fully initialized (AutoKit is required for the IQ pipeline to be ready).
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Registering AutoKit library\n");
+    {
+        AX_ISP_AUTOKIT_FUNC_T tAutoLibFunc = {};
+        AX_ISP_AUTOKIT_LIB_T tAutoLib = {};
+        tAutoLib.nLibId = 1;
+        std::snprintf(tAutoLib.szLibName, sizeof(tAutoLib.szLibName), "libax_autokit.so");
+        tAutoLibFunc.pfnAutoKit_Init    = AX_ISP_AUTOKIT_Init;
+        tAutoLibFunc.pfnAutoKit_Deinit  = AX_ISP_AUTOKIT_Deinit;
+        tAutoLibFunc.pfnAutoKit_Ctrl    = AX_ISP_AUTOKIT_Ctrl;
+        tAutoLibFunc.pfnAutoKit_Process = AX_ISP_AUTOKIT_Process;
+        AX_S32 ak_ret = AX_ISP_RegisterAutoKitLib(cfg_.pipe_id, &tAutoLib, &tAutoLibFunc);
+        if (ak_ret != AX_SUCCESS) {
+            std::fprintf(stderr, "[AxIspAdapter] AX_ISP_RegisterAutoKitLib failed: 0x%x\n", ak_ret);
+            Close();
+            return false;
+        }
+        autokit_registered_ = true;
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] AutoKit registered OK\n");
     }
 
     if (cfg_.register_3a && cfg_.sensor_handle && !Register3A()) {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] Register3A failed\n");
         Close();
         return false;
     }
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Register3A OK\n");
 
     LoadIqBin();
 
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling AX_ISP_Open\n");
     ret = AX_ISP_Open(cfg_.pipe_id);
     if (ret != AX_SUCCESS) {
         std::fprintf(stderr, "[AxIspAdapter] AX_ISP_Open failed: 0x%x\n", ret);
         Close();
         return false;
     }
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] AX_ISP_Open OK\n");
     opened_ = true;
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] ========== ISP Open Complete ==========\n");
     return true;
 }
 
 bool AxIspAdapter::Start() {
     if (!opened_) {
+        std::fprintf(stderr, "[AxIspAdapter][v20260611] Start: not opened\n");
         return false;
     }
     if (running_) {
+        std::fprintf(stderr, "[AxIspAdapter][v20260611] Start: already running\n");
         return true;
     }
 
+    std::fprintf(stderr, "[AxIspAdapter][v20260611] Calling AX_ISP_Start, pipe_id=%d\n", cfg_.pipe_id);
     AX_S32 ret = AX_ISP_Start(cfg_.pipe_id);
     if (ret != AX_SUCCESS) {
         std::fprintf(stderr, "[AxIspAdapter] AX_ISP_Start failed: 0x%x\n", ret);
         return false;
     }
+
     running_ = true;
+    std::fprintf(stderr, "[AxIspAdapter][v20260611] Start completed (StreamOn deferred)\n");
+    return true;
+}
+
+bool AxIspAdapter::StreamOn() {
+    if (!running_) {
+        std::fprintf(stderr, "[AxIspAdapter][v20260611] StreamOn: not running\n");
+        return false;
+    }
+    if (stream_on_) {
+        std::fprintf(stderr, "[AxIspAdapter][v20260611] StreamOn: already on\n");
+        return true;
+    }
+
+    std::fprintf(stderr, "[AxIspAdapter][v20260611] Calling AX_ISP_StreamOn\n");
+    AX_S32 ret = AX_ISP_StreamOn(cfg_.pipe_id);
+    if (ret != AX_SUCCESS) {
+        std::fprintf(stderr, "[AxIspAdapter] AX_ISP_StreamOn failed: 0x%x\n", ret);
+        return false;
+    }
+    stream_on_ = true;
+
+    // DEBUG: Check and adjust AWB to fix green tint issue
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Checking AWB status...\n");
+    AX_ISP_IQ_AWB_STATUS_T awb_status;
+    std::memset(&awb_status, 0, sizeof(awb_status));
+    ret = AX_ISP_IQ_GetAwbStatus(cfg_.pipe_id, &awb_status);
+    if (ret == AX_SUCCESS) {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] AWB Gain: R=%u, Gr=%u, Gb=%u, B=%u\n",
+                     awb_status.tGainStatus.nGainR, awb_status.tGainStatus.nGainGr,
+                     awb_status.tGainStatus.nGainGb, awb_status.tGainStatus.nGainB);
+    } else {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] GetAwbStatus failed: 0x%x\n", ret);
+    }
+
+    std::fprintf(stderr, "[AxIspAdapter][v20260611] StreamOn completed successfully\n");
     return true;
 }
 
 void AxIspAdapter::Stop() {
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Stop called, running=%d, stream_on=%d\n", running_, stream_on_);
     if (!running_) {
         return;
     }
+    if (stream_on_) {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling AX_ISP_StreamOff\n");
+        AX_ISP_StreamOff(cfg_.pipe_id);
+        stream_on_ = false;
+    }
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling AX_ISP_Stop\n");
     AX_ISP_Stop(cfg_.pipe_id);
     running_ = false;
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Stop completed\n");
 }
 
 void AxIspAdapter::Close() {
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Close called\n");
     Stop();
 
     if (opened_) {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling AX_ISP_Close\n");
         AX_ISP_Close(cfg_.pipe_id);
         opened_ = false;
     }
 
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling Unregister3A\n");
     Unregister3A();
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling UnregisterSensor\n");
     UnregisterSensor();
 
+    if (autokit_registered_) {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling AX_ISP_UnRegisterAutoKitLib\n");
+        AX_ISP_UnRegisterAutoKitLib(cfg_.pipe_id);
+        autokit_registered_ = false;
+    }
+
     if (created_) {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling AX_ISP_Destroy\n");
         AX_ISP_Destroy(cfg_.pipe_id);
         created_ = false;
     }
 
     if (sns_clk_opened_) {
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling AX_ISP_CloseSnsClk\n");
         AX_ISP_CloseSnsClk(cfg_.sns_clk_idx);
         sns_clk_opened_ = false;
     }
 
     cfg_ = {};
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Close completed\n");
 }
 
 MediaStatusCode AxIspAdapter::ApplyWhiteBalance(const WhiteBalanceConfig& config) {
@@ -257,19 +390,32 @@ MediaStatusCode AxIspAdapter::ApplyWbc(const WbcConfig& config) {
 
 bool AxIspAdapter::RegisterSensor() {
     if (!cfg_.sensor_handle) {
+        std::fprintf(stderr, "[AxIspAdapter] RegisterSensor: sensor_handle is NULL\n");
         return false;
     }
 
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] RegisterSensor: pipe_id=%d, sensor_handle=%p\n",
+                 cfg_.pipe_id, cfg_.sensor_handle);
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Sensor callbacks: init=%p, exit=%p, streaming=%p\n",
+                 cfg_.sensor_handle->pfn_sensor_init,
+                 cfg_.sensor_handle->pfn_sensor_exit,
+                 cfg_.sensor_handle->pfn_sensor_streaming_ctrl);
+
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Calling AX_ISP_RegisterSensor\n");
     AX_S32 ret = AX_ISP_RegisterSensor(cfg_.pipe_id, cfg_.sensor_handle);
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] AX_ISP_RegisterSensor returned: 0x%x\n", ret);
     if (ret != AX_SUCCESS) {
         std::fprintf(stderr, "[AxIspAdapter] AX_ISP_RegisterSensor failed: 0x%x\n", ret);
         return false;
     }
 
     AX_SNS_COMMBUS_T bus_info;
+    std::memset(&bus_info, 0, sizeof(bus_info));
     bus_info.busType = ISP_SNS_CONNECT_I2C_TYPE;
     bus_info.I2cDev = cfg_.dev_id == 0 ? 1 : 0;
     bus_info.nPwdnGpio = cfg_.dev_id == 0 ? 72 : 59;
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] Setting bus info: I2cDev=%d, PwdnGpio=%d\n",
+                 bus_info.I2cDev, bus_info.nPwdnGpio);
     if (cfg_.sensor_handle->pfn_sensor_set_bus_info) {
         ret = cfg_.sensor_handle->pfn_sensor_set_bus_info(cfg_.pipe_id, bus_info);
         if (ret != AX_SUCCESS) {
@@ -277,9 +423,11 @@ bool AxIspAdapter::RegisterSensor() {
             AX_ISP_UnRegisterSensor(cfg_.pipe_id);
             return false;
         }
+        std::fprintf(stderr, "[AxIspAdapter][DEBUG] sensor_set_bus_info OK\n");
     }
 
     sensor_registered_ = true;
+    std::fprintf(stderr, "[AxIspAdapter][DEBUG] RegisterSensor completed successfully\n");
     return true;
 }
 

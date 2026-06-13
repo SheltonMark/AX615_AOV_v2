@@ -187,8 +187,12 @@ void AxVencAdapter::DestroyChannel(VENC_CHN chn_id)
             continue;
         }
 
-        Stop(chn_id);
-    AX_VENC_DestroyChn(static_cast<VENC_CHN>(chn_id));
+        // Only destroy if the channel was actually created
+        if ((*it)->created) {
+            Stop(chn_id);
+            AX_VENC_DestroyChn(static_cast<VENC_CHN>(chn_id));
+            (*it)->created = false;  // Mark as destroyed to prevent double destroy
+        }
         channels_.erase(it);
         MaybeModuleDeinit();
         return;
@@ -213,18 +217,21 @@ MediaStatusCode AxVencAdapter::Start(VENC_CHN chn_id)
 {
     ChannelContext* ctx = FindChannel(chn_id);
     if (!ctx || !ctx->created) {
+        std::fprintf(stderr, "[AxVencAdapter] Start: channel %d not created\n", chn_id);
         return MediaStatusCode::InvalidState;
     }
     if (ctx->running.load()) {
         return MediaStatusCode::Ok;
     }
 
+    std::fprintf(stderr, "[AxVencAdapter][v20260611] Starting VENC channel %d\n", chn_id);
     AX_VENC_RECV_PIC_PARAM_T recv_param;
     std::memset(&recv_param, 0, sizeof(recv_param));
     recv_param.s32RecvPicNum = -1;
 
     const AX_S32 ret = AX_VENC_StartRecvFrame(static_cast<VENC_CHN>(chn_id), &recv_param);
     if (ret != AX_SUCCESS) {
+        std::fprintf(stderr, "[AxVencAdapter] AX_VENC_StartRecvFrame(%d) failed: 0x%x\n", chn_id, ret);
         return MediaStatusCode::InternalError;
     }
 
@@ -233,6 +240,7 @@ MediaStatusCode AxVencAdapter::Start(VENC_CHN chn_id)
     ctx->stream_thread = std::thread([this, ctx]() {
         StreamLoop(*ctx);
     });
+    std::fprintf(stderr, "[AxVencAdapter][v20260611] VENC channel %d started successfully\n", chn_id);
     return MediaStatusCode::Ok;
 }
 
@@ -458,21 +466,39 @@ StreamFrame AxVencAdapter::ToStreamFrame(const ChannelContext& ctx, const AX_VEN
 
 void AxVencAdapter::StreamLoop(ChannelContext& ctx)
 {
+    std::fprintf(stderr, "[AxVencAdapter][DEBUG] StreamLoop started for channel %d\n", ctx.cfg.chn_id);
+    int timeout_count = 0;
+    int success_count = 0;
+
     while (ctx.running.load()) {
         AX_VENC_STREAM_T stream;
         std::memset(&stream, 0, sizeof(stream));
 
         const AX_S32 ret = AX_VENC_GetStream(static_cast<VENC_CHN>(ctx.cfg.chn_id), &stream, ctx.cfg.get_stream_timeout_ms);
         if (ret == AX_SUCCESS) {
+            success_count++;
+            if (success_count <= 5 || success_count % 30 == 0) {
+                std::fprintf(stderr, "[AxVencAdapter][DEBUG] Got stream #%d, size=%u, addr=%p\n",
+                            success_count, stream.stPack.u32Len, stream.stPack.pu8Addr);
+            }
             if (stream.stPack.pu8Addr && stream.stPack.u32Len > 0 && ctx.callback) {
                 const StreamFrame frame = ToStreamFrame(ctx, stream);
                 ctx.callback(frame);
             }
             AX_VENC_ReleaseStream(static_cast<VENC_CHN>(ctx.cfg.chn_id), &stream);
         } else if (ret == AX_ERR_VENC_FLOW_END) {
+            std::fprintf(stderr, "[AxVencAdapter][DEBUG] FLOW_END received, exiting loop\n");
             ctx.running.store(false);
+        } else {
+            timeout_count++;
+            if (timeout_count <= 10 || timeout_count % 100 == 0) {
+                std::fprintf(stderr, "[AxVencAdapter][DEBUG] GetStream timeout #%d, ret=0x%x\n",
+                            timeout_count, ret);
+            }
         }
     }
+    std::fprintf(stderr, "[AxVencAdapter][DEBUG] StreamLoop exited, success=%d, timeouts=%d\n",
+                success_count, timeout_count);
 }
 
 }  // namespace aov::media::ax615

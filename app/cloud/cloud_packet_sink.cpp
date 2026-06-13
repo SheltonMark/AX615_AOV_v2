@@ -53,7 +53,25 @@ void CloudPacketSink::Reset() {
 
 CloudPacketSinkResult BindCloudToPacket(aov::app::packet::MediaPacketRouter& router,
                                         CloudPacketSink& sink) {
-    const auto result = router.BindCloudSink(
+    return BindCloudLiveToPacket(router, sink);
+}
+
+CloudPacketSinkResult BindCloudLiveToPacket(aov::app::packet::MediaPacketRouter& router,
+                                            CloudPacketSink& sink) {
+    const auto result = router.BindCloudLiveSink(
+        [&sink](const aov::app::packet::PacketFrame& frame) {
+            sink.OnPacketFrame(frame);
+        });
+
+    if (!result.ok()) {
+        return CloudPacketSinkResult::Error(result.message);
+    }
+    return CloudPacketSinkResult::Ok();
+}
+
+CloudPacketSinkResult BindCloudStorageToPacket(aov::app::packet::MediaPacketRouter& router,
+                                               CloudPacketSink& sink) {
+    const auto result = router.BindCloudStorageSink(
         [&sink](const aov::app::packet::PacketFrame& frame) {
             sink.OnPacketFrame(frame);
         });

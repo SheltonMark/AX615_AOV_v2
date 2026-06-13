@@ -18,13 +18,13 @@ struct IvpsChannelConfig {
     AX_IMG_FORMAT_E format = AX_FORMAT_YUV420_SEMIPLANAR;
     int src_fps = 0;
     int dst_fps = 0;
-    int out_fifo_depth = 0;
+    int out_fifo_depth = 2;  // CRITICAL: SDK sample uses 2, not 0!
     AX_IVPS_ENGINE_E engine = AX_IVPS_ENGINE_SCL;
 };
 
 struct IvpsGroupConfig {
     int grp_id = 0;
-    int in_fifo_depth = 2;
+    int in_fifo_depth = 4;  // CRITICAL: SDK sample uses 4 for input buffering
     int in_debug_fifo_depth = 0;
     AX_IVPS_FRC_MODE_E frc_mode = AX_IVPS_FRC_RATIO;
     std::vector<IvpsChannelConfig> channels;

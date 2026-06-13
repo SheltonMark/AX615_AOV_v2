@@ -11,6 +11,7 @@ struct VinOpenOptions {
     std::string sensor_name;
     AX_INPUT_MODE_E input_mode = AX_INPUT_MODE_MIPI;
     AX_LANE_COMBO_MODE_E lane_combo = AX_LANE_COMBO_MODE_0;
+    int chn_frame_mode = 1;  // default 1, matching QSDemo
 };
 
 class AxVinAdapter {
@@ -25,7 +26,8 @@ public:
     bool Open(const SensorProfile& profile,
               AX_INPUT_MODE_E input_mode = AX_INPUT_MODE_MIPI,
               AX_LANE_COMBO_MODE_E lane_combo = AX_LANE_COMBO_MODE_0);
-    bool Enable();
+    bool Enable();      // EnableChn + StartPipe (不包含 EnableDev)
+    bool StartDev();    // EnableDev (必须在 ISP Start 之后调用)
     void Disable();
     void Close();
 
@@ -41,13 +43,16 @@ private:
     void DestroyDevice();
 
     SensorProfile profile_{};
+    int chn_frame_mode_ = 1;
     bool open_ = false;
     bool enabled_ = false;
     bool vin_initialized_ = false;
+    bool mipi_initialized_ = false;
     bool mipi_started_ = false;
     bool dev_created_ = false;
     bool dev_enabled_ = false;
     bool pipe_created_ = false;
+    bool pipe_started_ = false;
     std::vector<AX_VIN_CHN_ID_E> enabled_channels_;
 };
 

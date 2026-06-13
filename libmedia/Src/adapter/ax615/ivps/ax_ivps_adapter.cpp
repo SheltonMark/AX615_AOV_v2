@@ -1,6 +1,7 @@
 #include "ax_ivps_adapter.hpp"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 
 namespace aov::media::ax615 {
@@ -28,17 +29,21 @@ bool AxIvpsAdapter::Open(const IvpsGroupConfig& cfg)
     }
 
     if (cfg.channels.empty() || cfg.channels.size() > kMaxOutChannels) {
+        std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Invalid channel count: %zu\n", cfg.channels.size());
         return false;
     }
 
     cfg_ = cfg;
 
+    std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Calling AX_IVPS_Init\n");
     AX_S32 ret = AX_IVPS_Init();
     if (ret != AX_SUCCESS) {
+        std::fprintf(stderr, "[AxIvpsAdapter][v20260611] AX_IVPS_Init failed: 0x%x\n", ret);
         return false;
     }
     ivps_initialized_ = true;
 
+    std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Creating IVPS group %d\n", cfg_.grp_id);
     AX_IVPS_GRP_ATTR_T grp_attr;
     std::memset(&grp_attr, 0, sizeof(grp_attr));
     grp_attr.nInFifoDepth = cfg_.in_fifo_depth;
@@ -46,17 +51,25 @@ bool AxIvpsAdapter::Open(const IvpsGroupConfig& cfg)
 
     ret = AX_IVPS_CreateGrp(cfg_.grp_id, &grp_attr);
     if (ret != AX_SUCCESS) {
+        std::fprintf(stderr, "[AxIvpsAdapter][v20260611] AX_IVPS_CreateGrp failed: 0x%x\n", ret);
         Close();
         return false;
     }
     group_created_ = true;
 
-    if (!SetPipelineAttr() || !EnableChannels()) {
+    std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Setting pipeline attributes\n");
+    if (!SetPipelineAttr()) {
+        std::fprintf(stderr, "[AxIvpsAdapter][v20260611] SetPipelineAttr failed\n");
         Close();
         return false;
     }
 
+    // NOTE: QSDemo and official samples do NOT call AX_IVPS_EnableChn
+    // Channels are enabled automatically when AX_IVPS_StartGrp is called
+    std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Skipping EnableChannels (not needed)\n");
+
     opened_ = true;
+    std::fprintf(stderr, "[AxIvpsAdapter][v20260611] IVPS Open completed successfully\n");
     return true;
 }
 
@@ -66,12 +79,35 @@ bool AxIvpsAdapter::Start()
         return opened_ && running_;
     }
 
+    std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Starting IVPS group %d\n", cfg_.grp_id);
     const AX_S32 ret = AX_IVPS_StartGrp(cfg_.grp_id);
     if (ret != AX_SUCCESS) {
+        std::fprintf(stderr, "[AxIvpsAdapter] AX_IVPS_StartGrp(%d) failed: 0x%x\n", cfg_.grp_id, ret);
         return false;
     }
 
+    // Verify IVPS is actually running by reading back the pipeline attr
+    AX_IVPS_PIPELINE_ATTR_T verify_attr;
+    std::memset(&verify_attr, 0, sizeof(verify_attr));
+    AX_S32 verify_ret = AX_IVPS_GetPipelineAttr(cfg_.grp_id, &verify_attr);
+    if (verify_ret == AX_SUCCESS) {
+        std::fprintf(stderr, "[AxIvpsAdapter][DEBUG] IVPS verification: nOutChnNum=%d, eFRCMode=%d\n",
+                     verify_attr.nOutChnNum, verify_attr.eFRCMode);
+        std::fprintf(stderr, "[AxIvpsAdapter][DEBUG]   tFilter[0][0].bEngage=%d, eEngine=%d, %dx%d\n",
+                     verify_attr.tFilter[0][0].bEngage, verify_attr.tFilter[0][0].eEngine,
+                     verify_attr.tFilter[0][0].nDstPicWidth, verify_attr.tFilter[0][0].nDstPicHeight);
+        std::fprintf(stderr, "[AxIvpsAdapter][DEBUG]   tFilter[1][0].bEngage=%d, eEngine=%d, %dx%d\n",
+                     verify_attr.tFilter[1][0].bEngage, verify_attr.tFilter[1][0].eEngine,
+                     verify_attr.tFilter[1][0].nDstPicWidth, verify_attr.tFilter[1][0].nDstPicHeight);
+        for (int i = 0; i < verify_attr.nOutChnNum; i++) {
+            std::fprintf(stderr, "[AxIvpsAdapter][DEBUG]   nOutFifoDepth[%d]=%d\n", i, verify_attr.nOutFifoDepth[i]);
+        }
+    } else {
+        std::fprintf(stderr, "[AxIvpsAdapter][ERROR] AX_IVPS_GetPipelineAttr failed: 0x%x\n", verify_ret);
+    }
+
     running_ = true;
+    std::fprintf(stderr, "[AxIvpsAdapter][v20260611] IVPS group %d started successfully\n", cfg_.grp_id);
     return true;
 }
 
@@ -161,11 +197,29 @@ bool AxIvpsAdapter::SetPipelineAttr()
     attr.nInDebugFifoDepth = cfg_.in_debug_fifo_depth;
     attr.eFRCMode = cfg_.frc_mode;
 
+    // CRITICAL: Configure group filter (tFilter[0][0]) to receive VIN input
+    // SDK sample uses [0][0], NOT [0][1]! This was the bug!
+    std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Configuring group filter (tFilter[0][0])\n");
+    AX_IVPS_FILTER_T& group_filter = attr.tFilter[0][0];  // CRITICAL: [0][0] not [0][1]!
+    group_filter.bEngage = AX_TRUE;
+    group_filter.eEngine = AX_IVPS_ENGINE_GDC;  // Use GDC engine (SDK sample uses GDC)
+    group_filter.nDstPicWidth = 2560;   // Match VIN output
+    group_filter.nDstPicHeight = 1440;
+    group_filter.nDstPicStride = 2560;
+    group_filter.eDstPicFormat = AX_FORMAT_YUV420_SEMIPLANAR;
+    group_filter.bCrop = AX_FALSE;
+    std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Group filter: %dx%d, engine=%d\n",
+                 group_filter.nDstPicWidth, group_filter.nDstPicHeight, group_filter.eEngine);
+
     AX_U8 max_chn_id = 0;
     for (const auto& ch : cfg_.channels) {
         if (ch.chn_id < 0 || ch.chn_id >= kMaxOutChannels) {
+            std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Invalid channel id: %d\n", ch.chn_id);
             return false;
         }
+
+        std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Configuring channel %d: %dx%d, stride=%d, fps=%d->%d\n",
+                     ch.chn_id, ch.width, ch.height, EffectiveStride(ch), ch.src_fps, ch.dst_fps);
 
         max_chn_id = std::max(max_chn_id, static_cast<AX_U8>(ch.chn_id));
         attr.nOutFifoDepth[ch.chn_id] = ch.out_fifo_depth;
@@ -184,15 +238,24 @@ bool AxIvpsAdapter::SetPipelineAttr()
     }
 
     attr.nOutChnNum = static_cast<AX_U8>(max_chn_id + 1);
+    std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Calling AX_IVPS_SetPipelineAttr, nOutChnNum=%d\n", attr.nOutChnNum);
 
-    return AX_IVPS_SetPipelineAttr(cfg_.grp_id, &attr) == AX_SUCCESS;
+    AX_S32 ret = AX_IVPS_SetPipelineAttr(cfg_.grp_id, &attr);
+    if (ret != AX_SUCCESS) {
+        std::fprintf(stderr, "[AxIvpsAdapter][v20260611] AX_IVPS_SetPipelineAttr failed: 0x%x\n", ret);
+        return false;
+    }
+    return true;
 }
 
 bool AxIvpsAdapter::EnableChannels()
 {
     for (const auto& ch : cfg_.channels) {
+        std::fprintf(stderr, "[AxIvpsAdapter][v20260611] Enabling channel %d\n", ch.chn_id);
         const AX_S32 ret = AX_IVPS_EnableChn(cfg_.grp_id, ch.chn_id);
         if (ret != AX_SUCCESS) {
+            std::fprintf(stderr, "[AxIvpsAdapter][v20260611] AX_IVPS_EnableChn(grp=%d, chn=%d) failed: 0x%x\n",
+                         cfg_.grp_id, ch.chn_id, ret);
             DisableChannels();
             return false;
         }

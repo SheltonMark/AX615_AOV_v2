@@ -7,7 +7,7 @@
 #include "../../app/config/config_service_stub.hpp"
 #include "../../app/core/aov_app_runtime.hpp"
 #include "../../app/core/aov_orchestrator_stub.hpp"
-#include "../../app/packet/packet_service_stub.hpp"
+#include "../../app/packet/packet_service.hpp"
 #include "../../app/storage/dhfs/dhfs_writer_stub.hpp"
 #include "../../app/storage/storage_service_stub.hpp"
 #include "../../libmedia/Include/audio/i_audio_stream_service.hpp"
@@ -125,7 +125,7 @@ int main() {
     AovOrchestratorStub orchestrator;
     CloudServiceStub cloud;
     AlarmServiceStub alarm;
-    packet::PacketServiceStub packet;
+    packet::PacketService packet;
     storage::StorageServiceStub storage(
         std::make_unique<storage::dhfs::DhfsWriterStub>());
     FakeMediaRuntime media;
