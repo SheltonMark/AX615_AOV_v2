@@ -11,6 +11,8 @@ struct CoreWakeupPlan {
     bool restore_media {false};
     bool start_detect {false};
     bool start_local_record {false};
+    bool start_low_power_record {false};  // 新增：启动间隔录像（低功耗）
+    bool start_event_record {false};      // 新增：启动事件录像（常电）
     bool start_cloud_storage {false};
     bool start_preview {false};
     bool start_cloud_live {false};

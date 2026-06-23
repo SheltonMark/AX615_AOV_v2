@@ -5,6 +5,11 @@
 
 namespace aov::app::storage {
 
+enum class RecordMode {
+    Interval,  // 间隔录像（低功耗1fps）
+    Event,     // 事件录像（常电15fps）
+};
+
 enum class StorageStatusCode {
     Ok,
     InvalidArgument,

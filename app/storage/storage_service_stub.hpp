@@ -17,6 +17,7 @@ public:
     void Deinit() override;
 
     StorageResult StartRecord() override;
+    StorageResult StartRecord(RecordMode mode) override;
     StorageResult StopRecord() override;
 
     StorageResult OnPacketFrame(const aov::app::packet::PacketFrame& frame) override;

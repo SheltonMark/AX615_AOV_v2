@@ -2,7 +2,7 @@
 
 #include "sys_runtime.hpp"
 #include "../device/device_control_service_stub.hpp"
-#include "../modem/modem_service_stub.hpp"
+#include "../device/4G/modem_service_stub.hpp"
 #include "../network/network_service_stub.hpp"
 #include "../power/power_service_stub.hpp"
 #include "../storage/storage_service_stub.hpp"

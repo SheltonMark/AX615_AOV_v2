@@ -1,8 +1,12 @@
 #pragma once
 
+#include <functional>
 #include "common/sys_types.hpp"
 
 namespace aov::sys {
+
+// GPIO唤醒回调类型
+using GpioWakeupCallback = std::function<void(const WakeupEvent&)>;
 
 class IPowerService {
 public:
@@ -18,6 +22,11 @@ public:
 
     virtual SysStatusCode RegisterBatteryCallback() = 0;
     virtual SysStatusCode RegisterWakeupCallback() = 0;
+
+    // 新增：GPIO唤醒监听接口
+    virtual SysStatusCode RegisterGpioWakeupCallback(GpioWakeupCallback cb) = 0;
+    virtual SysStatusCode StartGpioMonitor() = 0;
+    virtual void StopGpioMonitor() = 0;
 };
 
 }  // namespace aov::sys

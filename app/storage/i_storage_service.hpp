@@ -13,6 +13,7 @@ public:
     virtual void Deinit() = 0;
 
     virtual StorageResult StartRecord() = 0;
+    virtual StorageResult StartRecord(RecordMode mode) = 0;
     virtual StorageResult StopRecord() = 0;
 
     virtual StorageResult OnPacketFrame(const aov::app::packet::PacketFrame& frame) = 0;

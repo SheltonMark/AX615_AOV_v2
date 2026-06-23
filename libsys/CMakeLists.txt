@@ -20,7 +20,7 @@ set(LIBSYS_PUBLIC_HEADERS
 
 set(LIBSYS_SOURCES
     Src/device/device_control_service_stub.cpp
-    Src/modem/modem_service_stub.cpp
+    Src/device/4G/modem_service_stub.cpp
     Src/network/network_service_stub.cpp
     Src/power/power_service_stub.cpp
     Src/runtime/sys_runtime.cpp

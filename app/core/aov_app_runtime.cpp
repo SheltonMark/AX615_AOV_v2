@@ -139,42 +139,113 @@ AovStatusCode AovAppRuntime::Stop() {
     return AovStatusCode::Ok;
 }
 
+AovStatusCode AovAppRuntime::OnWakeupEvent(const WakeupEvent& event) {
+    if (!status_.initialized) {
+        return AovStatusCode::InvalidState;
+    }
+
+    // 通知 orchestrator 处理唤醒事件（生成决策计划）
+    AovStatusCode status = orchestrator_.OnWakeupEvent(event);
+    if (status != AovStatusCode::Ok) {
+        return status;
+    }
+
+    // 获取决策计划（从 orchestrator 的内部状态推断）
+    // 注意：这里简化处理，实际应该从 orchestrator 返回 plan
+    // 但为了不改接口，我们根据唤醒源判断
+
+    if (event.source == WakeupSource::Timer) {
+        // 定时器唤醒 → 进入低功耗模式
+        if (media_runtime_ != nullptr) {
+            aov::media::LowPowerRecordProfile profile;
+            profile.width = 1920;
+            profile.height = 1080;
+            profile.fps = 1;
+            status = ToAovStatus(media_runtime_->EnterLowPowerMode(profile));
+            if (status != AovStatusCode::Ok) {
+                return status;
+            }
+        }
+
+        // 启动间隔录像
+        status = ToAovStatus(storage_.StartRecord(storage::RecordMode::Interval));
+        if (status != AovStatusCode::Ok) {
+            return status;
+        }
+
+    } else if (event.source == WakeupSource::AppRemote) {
+        // App预览唤醒 → 恢复常电
+        if (media_runtime_ != nullptr) {
+            status = ToAovStatus(media_runtime_->ResumeNormalMode());
+            if (status != AovStatusCode::Ok) {
+                return status;
+            }
+        }
+
+        // 启动事件录像
+        status = ToAovStatus(storage_.StartRecord(storage::RecordMode::Event));
+        if (status != AovStatusCode::Ok) {
+            return status;
+        }
+    }
+
+    return AovStatusCode::Ok;
+}
+
 AovStatusCode AovAppRuntime::OnDetectResult(const DetectResultSummary& result) {
     if (!status_.initialized) {
         return AovStatusCode::InvalidState;
     }
 
+    // 通知 orchestrator 处理检测结果
     AovStatusCode status = orchestrator_.OnDetectResult(result);
     if (status != AovStatusCode::Ok) {
         return status;
     }
 
-    const AlarmEvent event = alarm_.EvaluateDetectResult(result,
-                                                         config_.GetActiveConfig().alarm,
-                                                         orchestrator_.GetRuntimeWorkState(),
-                                                         orchestrator_.GetRuntimeContext().battery);
-    if (event.type == AlarmType::Unknown) {
-        return AovStatusCode::Ok;
-    }
+    // 判断是否检测到目标
+    const bool has_target = result.has_person || result.has_pet || result.has_vehicle;
 
-    if (event.need_record) {
-        status = ToAovStatus(storage_.StartRecord());
+    if (has_target) {
+        // 检测到目标 → libmedia 应该已经自动切换到常电（方案B）
+        // 这里只需要：
+        // 1. 切换录像模式：间隔录像 → 事件录像
+        // 2. 启动云存
+        // 3. 触发告警
+
+        // ① 切换录像模式
+        status = ToAovStatus(storage_.StopRecord());  // 停止间隔录像
+        if (status != AovStatusCode::Ok) {
+            // 继续执行，不中断
+        }
+
+        status = ToAovStatus(storage_.StartRecord(storage::RecordMode::Event));  // 启动事件录像
         if (status != AovStatusCode::Ok) {
             return status;
         }
-    }
 
-    if (event.need_cloud_report) {
-        status = cloud_.ReportAlarm(event);
-        if (status != AovStatusCode::Ok) {
-            return status;
-        }
-    }
+        // ② 评估告警
+        const AlarmEvent event = alarm_.EvaluateDetectResult(result,
+                                                             config_.GetActiveConfig().alarm,
+                                                             orchestrator_.GetRuntimeWorkState(),
+                                                             orchestrator_.GetRuntimeContext().battery);
 
-    if (event.need_cloud_report || event.need_record) {
-        status = cloud_.StartCloudStorage("alarm-" + std::to_string(event.timestamp_ms));
-        if (status != AovStatusCode::Ok) {
-            return status;
+        if (event.type != AlarmType::Unknown) {
+            // ③ 启动云存
+            if (event.need_cloud_report || event.need_record) {
+                status = cloud_.StartCloudStorage("detect-" + std::to_string(event.timestamp_ms));
+                if (status != AovStatusCode::Ok) {
+                    return status;
+                }
+            }
+
+            // ④ 上报告警
+            if (event.need_cloud_report) {
+                status = cloud_.ReportAlarm(event);
+                if (status != AovStatusCode::Ok) {
+                    return status;
+                }
+            }
         }
     }
 

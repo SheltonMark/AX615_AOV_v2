@@ -37,6 +37,10 @@ void StorageServiceStub::Deinit() {
 }
 
 StorageResult StorageServiceStub::StartRecord() {
+    return StartRecord(RecordMode::Event);  // 默认事件录像
+}
+
+StorageResult StorageServiceStub::StartRecord(RecordMode mode) {
     dhfs::DhfsWriterConfig writer_config;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -45,6 +49,13 @@ StorageResult StorageServiceStub::StartRecord() {
                                         "storage service is not initialized");
         }
         writer_config = BuildWriterConfig();
+
+        // 根据录像模式设置文件名前缀
+        if (mode == RecordMode::Interval) {
+            writer_config.file_prefix = "interval";  // 间隔录像
+        } else {
+            writer_config.file_prefix = "event";     // 事件录像
+        }
     }
 
     const auto result = writer_->Open(writer_config);

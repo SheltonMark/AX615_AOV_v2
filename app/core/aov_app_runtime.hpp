@@ -43,6 +43,7 @@ public:
     AovStatusCode Init();
     AovStatusCode Start();
     AovStatusCode Stop();
+    AovStatusCode OnWakeupEvent(const WakeupEvent& event);
     AovStatusCode OnDetectResult(const DetectResultSummary& result);
     AovStatusCode ApplyPendingConfig();
     cloud::CloudActionMapResult SubmitCloudAction(const cloud::CloudActionRequest& request);
