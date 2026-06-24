@@ -46,6 +46,10 @@ public:
     AovStatusCode OnWakeupEvent(const WakeupEvent& event);
     AovStatusCode OnDetectResult(const DetectResultSummary& result);
     AovStatusCode ApplyPendingConfig();
+
+    // Drain 状态管理
+    void CheckAndReportDrainState();
+
     cloud::CloudActionMapResult SubmitCloudAction(const cloud::CloudActionRequest& request);
     CoreCommandQueueResult PopCoreCommand(CoreCommand& out);
     std::size_t GetPendingCoreCommandCount() const;

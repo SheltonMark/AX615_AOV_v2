@@ -60,6 +60,9 @@ public:
     AX_POOL CreatePool(AX_U32 frame_size, AX_U32 depth, const char* name);
     void    DestroyPool(AX_POOL pool_id);
 
+    /// 初始化 NPU（调用 AX_ENGINE_Init）
+    MediaStatusCode InitNpu();
+
 private:
     AX_U32 AddToPlan(AX_POOL_FLOORPLAN_T* plan, AX_U32 cnt, const AX_POOL_CONFIG_T& cfg);
     MediaStatusCode CalcPool(const std::vector<PoolBlockCfg>& pools,

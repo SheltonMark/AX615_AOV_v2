@@ -38,7 +38,8 @@ struct CoreEvent {
     aov::app::DetectResultSummary detect;
     ConfigChangedEvent config_changed;
     CoreCommand command;
-    ModuleStateReport module_state;
+    ModuleDrainState module_drain_state;  // 改为 ModuleDrainState
+    std::uint64_t idle_timeout_timestamp_ms {0};  // 用于 IdleDebounceExpired 事件
 };
 
 } // namespace aov::app::core

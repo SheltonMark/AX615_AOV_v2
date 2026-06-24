@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "libmedia/Include/detect/i_detect_service.hpp"
 #include "libmedia/Include/video/i_video_stream_service.hpp"
 
 namespace aov::app::core {
@@ -87,6 +88,28 @@ AovStatusCode AovAppRuntime::Init() {
         return status;
     }
 
+    // 注册 libmedia 检测回调
+    if (media_runtime_ != nullptr) {
+        auto* detect_service = media_runtime_->GetDetectService();
+        if (detect_service != nullptr) {
+            detect_service->RegisterDetectCallback(
+                [this](const aov::media::DetectResultSummary& result) {
+                    // 将 libmedia 的检测结果转发到 app 层
+                    aov::app::DetectResultSummary app_result;
+                    app_result.has_person = result.has_human;  // libmedia 用 has_human
+                    app_result.has_pet = false;  // libmedia 没有 pet 检测
+                    app_result.has_vehicle = result.has_vehicle;
+                    app_result.object_count = result.object_count;
+                    app_result.frame_id = result.frame_id;
+                    app_result.timestamp_ms = result.timestamp_ms;
+
+                    // 触发 app 层的检测处理
+                    this->OnDetectResult(app_result);
+                }
+            );
+        }
+    }
+
     (void)alarm_;
     status_.initialized = true;
     return AovStatusCode::Ok;
@@ -155,13 +178,22 @@ AovStatusCode AovAppRuntime::OnWakeupEvent(const WakeupEvent& event) {
     // 但为了不改接口，我们根据唤醒源判断
 
     if (event.source == WakeupSource::Timer) {
-        // 定时器唤醒 → 进入低功耗模式
+        // 定时器唤醒 → 进入低功耗模式（1fps 录像 + 检测）
         if (media_runtime_ != nullptr) {
-            aov::media::LowPowerRecordProfile profile;
-            profile.width = 1920;
-            profile.height = 1080;
-            profile.fps = 1;
-            status = ToAovStatus(media_runtime_->EnterLowPowerMode(profile));
+            aov::media::WakeupMediaProfile profile;
+            profile.reason = aov::media::WakeupReason::Timer;
+            profile.start_video = true;              // 启动视频编码
+            profile.start_audio = false;
+            profile.start_detect_confirm = true;     // ✅ 关键：启动检测模块
+            profile.request_idr = true;
+
+            // 低功耗录像配置
+            profile.low_power_record.record_fps = 1;      // 1fps 录像
+            profile.low_power_record.normal_fps = 15;     // 常电帧率
+            profile.low_power_record.target_frame_count = 1;  // 每次唤醒采集1帧
+            profile.low_power_record.gop = 2;
+
+            status = ToAovStatus(media_runtime_->RestoreFromAovSleep(profile));
             if (status != AovStatusCode::Ok) {
                 return status;
             }
@@ -174,9 +206,16 @@ AovStatusCode AovAppRuntime::OnWakeupEvent(const WakeupEvent& event) {
         }
 
     } else if (event.source == WakeupSource::AppRemote) {
-        // App预览唤醒 → 恢复常电
+        // App预览唤醒 → 恢复常电模式
         if (media_runtime_ != nullptr) {
-            status = ToAovStatus(media_runtime_->ResumeNormalMode());
+            aov::media::WakeupMediaProfile profile;
+            profile.reason = aov::media::WakeupReason::App;
+            profile.start_video = true;
+            profile.start_audio = true;
+            profile.start_detect_confirm = false;  // App 预览不需要检测确认
+            profile.request_idr = true;
+
+            status = ToAovStatus(media_runtime_->RestoreFromAovSleep(profile));
             if (status != AovStatusCode::Ok) {
                 return status;
             }
@@ -444,4 +483,28 @@ AovStatusCode AovAppRuntime::BindMediaToPacket() {
     return AovStatusCode::Ok;
 }
 
+void AovAppRuntime::CheckAndReportDrainState() {
+    // 检查各模块的 Drain 状态
+    ModuleDrainState state;
+
+    // 1. 检查本地录像是否完成（关闭、刷新、同步）
+    // TODO: storage_ 需要提供 IsDrained() 或类似接口
+    state.local_record_closed_flushed_synced = true;  // 暂时默认为 true
+
+    // 2. 检查云端存储是否完成
+    // TODO: cloud_ 需要提供 IsUploadQueueEmpty() 接口
+    state.cloud_storage_finished = true;  // 暂时默认为 true
+
+    // 3. 检查配置是否持久化完成
+    // TODO: config_ 需要提供 IsPersisted() 接口
+    state.config_persisted = true;  // 暂时默认为 true
+
+    // 4. idle_debounce_expired 由 Orchestrator 管理，这里不设置
+    state.idle_debounce_expired = false;
+
+    // 上报给 Orchestrator
+    orchestrator_.OnModuleDrainStateChanged(state);
+}
+
 } // namespace aov::app::core
+

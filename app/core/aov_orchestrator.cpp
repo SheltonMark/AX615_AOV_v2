@@ -129,10 +129,10 @@ void AovOrchestrator::HandleEvent(const CoreEvent& event) {
             fprintf(stdout, "[AovOrchestrator] CloudCommand event (not implemented)\n");
             break;
         case CoreEventType::ModuleStateChanged:
-            HandleModuleDrainStateChanged(event.module_state);
+            HandleModuleDrainStateChanged(event.module_drain_state);
             break;
         case CoreEventType::IdleDebounceExpired:
-            HandleIdleDebounceExpired(event.wakeup.timestamp_ms);
+            HandleIdleDebounceExpired(event.idle_timeout_timestamp_ms);
             break;
         default:
             break;
@@ -365,24 +365,24 @@ AovStatusCode AovOrchestrator::OnPreviewSessionClosed(const std::string& session
     (void)session_id;
     CoreEvent event;
     event.type = CoreEventType::ModuleStateChanged;
-    event.module_state.local_record_closed_flushed_synced = true;
-    event.module_state.cloud_storage_finished = true;
-    event.module_state.config_persisted = true;
-    event.module_state.idle_debounce_expired = false;
+    event.module_drain_state.local_record_closed_flushed_synced = true;
+    event.module_drain_state.cloud_storage_finished = true;
+    event.module_drain_state.config_persisted = true;
+    event.module_drain_state.idle_debounce_expired = false;
     return PostEvent(event) ? AovStatusCode::Ok : AovStatusCode::Busy;
 }
 
 AovStatusCode AovOrchestrator::OnModuleDrainStateChanged(const ModuleDrainState& state) {
     CoreEvent event;
     event.type = CoreEventType::ModuleStateChanged;
-    event.module_state = state;
+    event.module_drain_state = state;
     return PostEvent(event) ? AovStatusCode::Ok : AovStatusCode::Busy;
 }
 
 AovStatusCode AovOrchestrator::OnIdleDebounceExpired(std::uint64_t timestamp_ms) {
     CoreEvent event;
     event.type = CoreEventType::IdleDebounceExpired;
-    event.wakeup.timestamp_ms = timestamp_ms;
+    event.idle_timeout_timestamp_ms = timestamp_ms;
     return PostEvent(event) ? AovStatusCode::Ok : AovStatusCode::Busy;
 }
 

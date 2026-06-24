@@ -27,8 +27,6 @@
 
 // 声明 Sensor 对象（来自 libsns_os04d10.a，C 符号）
 extern "C" {
-    #include "ax_ivps_api.h"
-    #include "ax_pool_type.h"
     extern AX_SENSOR_REGISTER_FUNC_T gSnsos04d10Obj;
 }
 #endif
@@ -160,33 +158,26 @@ MediaPipelineManager::MediaPipelineManager(
         if (!detect_ || !detect_->IsOpen() || !ivps_ || !ivps_->IsRunning()) {
             return MediaStatusCode::InvalidState;
         }
-        
-        // Get frame from IVPS channel
+
+        // 通过 IVPS adapter 获取帧
         AX_VIDEO_FRAME_T video_frame;
         std::memset(&video_frame, 0, sizeof(video_frame));
-        
-        const int ivps_grp = detect_config_.ivps_grp_id;
+
         const int ivps_chn = detect_config_.ivps_chn_id;
         const int timeout_ms = 100;  // 100ms timeout
-        
-        AX_S32 ret = AX_IVPS_GetChnFrame(ivps_grp, ivps_chn, &video_frame, timeout_ms);
-        if (ret != AX_SUCCESS) {
+
+        if (!ivps_->GetChnFrame(ivps_chn, video_frame, timeout_ms)) {
             // Timeout or no frame available, not an error
             return MediaStatusCode::Ok;
         }
-        
-        // Get physical address from pool
-        video_frame.u64VirAddr[0] = (AX_ULONG)AX_POOL_GetBlockVirAddr(video_frame.u32BlkId[0]);
-        video_frame.u64PhyAddr[0] = AX_POOL_Handle2PhysAddr(video_frame.u32BlkId[0]);
-        video_frame.u32FrameSize = video_frame.u32PicStride[0] * video_frame.u32Height * 3 / 2;
-        
+
         // Send frame to SKEL
         static uint64_t frame_id = 0;
         MediaStatusCode status = detect_->SendFrame(ivps_chn, frame_id++, video_frame, 0);
-        
-        // Release frame back to IVPS
-        AX_IVPS_ReleaseChnFrame(ivps_grp, ivps_chn, &video_frame);
-        
+
+        // 通过 IVPS adapter 释放帧
+        ivps_->ReleaseChnFrame(ivps_chn, video_frame);
+
         return status;
     });
     osd_service_->SetApplyHandler([this](const OsdApplyConfig& config) {
@@ -644,6 +635,14 @@ MediaStatusCode MediaPipelineManager::StartAx615Adapters() {
     status = sys_->ConfigCmPool(pool_);
     if (status != MediaStatusCode::Ok) {
         std::fprintf(stderr, "[Pipeline][v20260611] sys_->ConfigCmPool() failed\n");
+        return status;
+    }
+
+    // Initialize NPU for AI detection (SKEL)
+    std::fprintf(stderr, "[Pipeline][v20260611] Initializing NPU\n");
+    status = sys_->InitNpu();
+    if (status != MediaStatusCode::Ok) {
+        std::fprintf(stderr, "[Pipeline][v20260611] sys_->InitNpu() failed\n");
         return status;
     }
 

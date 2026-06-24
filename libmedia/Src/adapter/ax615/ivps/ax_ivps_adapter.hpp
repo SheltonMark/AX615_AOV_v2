@@ -43,6 +43,10 @@ public:
     void Stop();
     void Close();
 
+    // 帧获取和释放接口（封装 AX_IVPS_GetChnFrame/ReleaseChnFrame）
+    bool GetChnFrame(int chn_id, AX_VIDEO_FRAME_T& frame, int timeout_ms);
+    bool ReleaseChnFrame(int chn_id, const AX_VIDEO_FRAME_T& frame);
+
     IVPS_RGN_HANDLE CreateRegion(IVPS_FILTER_ID filter, const AX_IVPS_RGN_DISP_GROUP_T& disp);
     bool UpdateRegion(IVPS_RGN_HANDLE handle, const AX_IVPS_RGN_DISP_GROUP_T& disp);
     void DestroyRegion(IVPS_RGN_HANDLE handle, IVPS_FILTER_ID filter);

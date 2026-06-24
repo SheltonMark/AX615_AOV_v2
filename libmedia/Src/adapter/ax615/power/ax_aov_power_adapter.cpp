@@ -101,6 +101,24 @@ MediaStatusCode AxAovPowerAdapter::ApplyLowPower(const AovPowerConfig& cfg)
         return status;
     }
 
+    // 参考 QSDemo AOV 分析文档 (docs/QSDemo/QSDemo_AOV_Analysis.md 第 7.1 节)
+    // 显式唤醒 sensor，让它吐出 cap_frame_num 帧用于检测
+    status = WakeupTcmSensors(cfg.pipes);
+    if (status != MediaStatusCode::Ok) {
+        return status;
+    }
+
+    // 设置捕获帧数，确保 sensor 吐出指定数量的帧供 SKEL 检测
+    for (const auto& pipe : cfg.pipes) {
+        if (pipe.enable_tcm) {
+            const AX_U32 cap_frames = cfg.tcm_cap_frame_num == 0 ? 1 : cfg.tcm_cap_frame_num;
+            AX_S32 ret = AX_VIN_SetCapFrameNumbers(pipe.pipe_id, cap_frames);
+            if (ret != AX_SUCCESS) {
+                return MediaStatusCode::InternalError;
+            }
+        }
+    }
+
     low_power_ = true;
     return MediaStatusCode::Ok;
 }

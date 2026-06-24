@@ -4,6 +4,7 @@
 #include "ax_vin_api.h"
 #include <cstdio>
 #include <cstring>
+#include "ax_engine_api.h"
 
 namespace aov::media::ax615 {
 
@@ -32,6 +33,27 @@ MediaStatusCode AxSysAdapter::Init() {
     initialized_ = true;
     return MediaStatusCode::Ok;
 }
+
+MediaStatusCode AxSysAdapter::InitNpu()
+{
+    std::fprintf(stderr, "[AxSysAdapter] Initializing NPU (AX_ENGINE_Init)\n");
+
+    AX_ENGINE_NPU_ATTR_T attr;
+    std::memset(&attr, 0, sizeof(attr));
+    attr.eHardMode = AX_ENGINE_VIRTUAL_NPU_ENABLE;
+
+#ifndef __RTT_OS__
+    AX_S32 ret = AX_ENGINE_Init(&attr);
+    if (ret != AX_SUCCESS) {
+        std::fprintf(stderr, "[AxSysAdapter] AX_ENGINE_Init failed: 0x%x\n", ret);
+        return MediaStatusCode::InternalError;
+    }
+#endif
+
+    std::fprintf(stderr, "[AxSysAdapter] NPU initialized successfully\n");
+    return MediaStatusCode::Ok;
+}
+
 
 MediaStatusCode AxSysAdapter::ConfigCmPool(const std::vector<PoolBlockCfg>& pools) {
     if (!initialized_) {

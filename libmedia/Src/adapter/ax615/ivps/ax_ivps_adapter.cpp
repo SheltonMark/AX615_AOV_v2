@@ -4,6 +4,11 @@
 #include <cstdio>
 #include <cstring>
 
+extern "C" {
+#include "ax_pool_type.h"
+#include "ax_sys_api.h"
+}
+
 namespace aov::media::ax615 {
 namespace {
 
@@ -271,6 +276,37 @@ void AxIvpsAdapter::DisableChannels()
         AX_IVPS_DisableChn(cfg_.grp_id, *it);
     }
     enabled_channels_.clear();
+}
+
+bool AxIvpsAdapter::GetChnFrame(int chn_id, AX_VIDEO_FRAME_T& frame, int timeout_ms)
+{
+    if (!running_) {
+        return false;
+    }
+
+    AX_S32 ret = AX_IVPS_GetChnFrame(cfg_.grp_id, chn_id, &frame, timeout_ms);
+    if (ret != AX_SUCCESS) {
+        return false;
+    }
+
+    // 填充虚拟地址和物理地址
+    frame.u64VirAddr[0] = (AX_ULONG)AX_POOL_GetBlockVirAddr(frame.u32BlkId[0]);
+    frame.u64PhyAddr[0] = AX_POOL_Handle2PhysAddr(frame.u32BlkId[0]);
+    frame.u32FrameSize = frame.u32PicStride[0] * frame.u32Height * 3 / 2;
+
+    return true;
+}
+
+bool AxIvpsAdapter::ReleaseChnFrame(int chn_id, const AX_VIDEO_FRAME_T& frame)
+{
+    if (!running_) {
+        return false;
+    }
+
+    // 需要 const_cast，因为 SDK 接口不是 const
+    AX_VIDEO_FRAME_T* mutable_frame = const_cast<AX_VIDEO_FRAME_T*>(&frame);
+    AX_S32 ret = AX_IVPS_ReleaseChnFrame(cfg_.grp_id, chn_id, mutable_frame);
+    return ret == AX_SUCCESS;
 }
 
 }  // namespace aov::media::ax615
